@@ -625,6 +625,144 @@ def cmd_list(interactive=False):
         print(fmt.format(r[0], r[1], r[2], r[3]))
 
 
+def cmd_go(worktree_name=None):
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+
+    if not (
+        common_dir.endswith("/.bare")
+        or common_dir.endswith("\\.bare")
+        or os.path.basename(common_dir) == ".bare"
+    ):
+        print(
+            "Error: Not in a gwt-initialized project (missing '.bare' directory).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    project_root = os.path.dirname(common_dir)
+    worktrees = list_worktrees(project_root)
+
+    if worktree_name:
+        # Direct navigation to a specific worktree
+        target_path = None
+        for wt in worktrees:
+            path = wt.get("path")
+            if wt.get("bare", False) or path == common_dir:
+                continue
+
+            dir_name = os.path.basename(path)
+            branch_ref = wt.get("branch")
+            branch_name = branch_ref.replace("refs/heads/", "") if branch_ref else ""
+
+            # Match by directory name or branch name
+            if worktree_name in [dir_name, branch_name]:
+                target_path = path
+                break
+
+        if not target_path:
+            print(f"Error: Worktree '{worktree_name}' not found.", file=sys.stderr)
+            sys.exit(1)
+
+        if os.path.isdir(target_path):
+            print(target_path)
+            sys.exit(0)
+        else:
+            print(
+                f"Error: Worktree directory '{target_path}' does not exist.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+    # Interactive mode using fzf
+    if sys.stderr.isatty():
+        import shutil
+
+        if not shutil.which("fzf"):
+            print(
+                "Error: fzf is required for interactive mode. Please install it (e.g. 'brew install fzf') or specify a worktree name.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        # Generate fzf input lines (excluding .bare)
+        fzf_lines = []
+        path_map = {}
+        for wt in worktrees:
+            path = wt.get("path")
+            if wt.get("bare", False) or path == common_dir:
+                continue
+
+            dir_name = os.path.basename(path)
+            branch_ref = wt.get("branch")
+            branch_name = (
+                branch_ref.replace("refs/heads/", "") if branch_ref else "(detached)"
+            )
+
+            # Get status for preview
+            try:
+                status_output = run_git(
+                    ["status", "--porcelain"], cwd=path, log_error=False
+                )
+                staged, unstaged = parse_git_status(status_output)
+                if len(staged) == 0 and len(unstaged) == 0:
+                    status = "Clean"
+                elif len(staged) > 0 and len(unstaged) > 0:
+                    status = f"Dirty ({len(staged)} staged, {len(unstaged)} unstaged)"
+                elif len(staged) > 0:
+                    status = f"Dirty ({len(staged)} staged)"
+                else:
+                    status = f"Dirty ({len(unstaged)} unstaged)"
+            except Exception:
+                status = "Unknown"
+
+            line = f"{dir_name:<30} {branch_name:<30} {status}"
+            fzf_lines.append(line)
+            path_map[dir_name] = path
+
+        fzf_input = "\n".join(fzf_lines) + "\n"
+
+        cmd = [
+            "fzf",
+            "--prompt=Select worktree to cd into: ",
+            "--height=15",
+            "--layout=reverse",
+            "--border",
+            "--preview",
+            f"git -C {project_root}/{{1}} log --oneline -n 5 2>/dev/null || echo 'No git history'",
+        ]
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=sys.stderr,
+                text=True,
+            )
+            fzf_output, _ = proc.communicate(input=fzf_input)
+            if proc.returncode == 0 and fzf_output.strip():
+                parts = fzf_output.strip().split()
+                if parts:
+                    dir_name = parts[0]
+                    target_path = path_map.get(dir_name)
+                    if target_path and os.path.isdir(target_path):
+                        print(target_path)
+                        sys.exit(0)
+            sys.exit(0)
+        except Exception as e:
+            print(f"Error running interactive menu: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(
+            "Error: Interactive mode requires a terminal. Please specify a worktree name.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def cmd_repair():
     common_dir = get_git_common_dir()
     if not common_dir:
@@ -826,6 +964,16 @@ def main():
         help="Launch interactive fzf picker to select and cd to a worktree",
     )
 
+    go_parser = subparsers.add_parser(
+        "go", help="Navigate to an existing worktree (interactive if no name given)"
+    )
+    go_parser.add_argument(
+        "worktree",
+        nargs="?",
+        default=None,
+        help="Name of the worktree to navigate to (interactive picker if omitted)",
+    )
+
     subparsers.add_parser("repair", help="Repair broken worktree pointers")
 
     args = parser.parse_args()
@@ -838,6 +986,8 @@ def main():
         cmd_clean()
     elif args.command == "list":
         cmd_list(args.interactive)
+    elif args.command == "go":
+        cmd_go(args.worktree)
     elif args.command == "repair":
         cmd_repair()
     elif args.command == "init-shell":
