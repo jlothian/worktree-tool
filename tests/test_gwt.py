@@ -301,13 +301,13 @@ class TestGitWorktreeTool(unittest.TestCase):
     def test_init_shell_output(self):
         res_zsh = self.run_cmd([GWT_CLI_PATH, "init-shell", "zsh"])
         self.assertEqual(res_zsh.returncode, 0)
-        self.assertIn("gwt()", res_zsh.stdout)
+        self.assertIn("function gwt", res_zsh.stdout)
         self.assertIn("_gwt_zsh()", res_zsh.stdout)
         self.assertIn("compdef _gwt_zsh gwt", res_zsh.stdout)
 
         res_bash = self.run_cmd([GWT_CLI_PATH, "init-shell", "bash"])
         self.assertEqual(res_bash.returncode, 0)
-        self.assertIn("gwt()", res_bash.stdout)
+        self.assertIn("function gwt", res_bash.stdout)
         self.assertIn("_gwt_bash()", res_bash.stdout)
         self.assertIn("complete -F _gwt_bash gwt", res_bash.stdout)
 

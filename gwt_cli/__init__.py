@@ -599,7 +599,7 @@ if alias gwt >/dev/null 2>&1; then
     unalias gwt
 fi
 
-gwt() {
+function gwt {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
         shift
@@ -649,7 +649,7 @@ if alias gwt >/dev/null 2>&1; then
     unalias gwt
 fi
 
-gwt() {
+function gwt {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
         shift
