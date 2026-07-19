@@ -240,6 +240,20 @@ class TestGitWorktreeTool(unittest.TestCase):
             
         res4 = self.run_cmd([GWT_CLI_PATH, "list"], cwd=main_path)
         self.assertIn("Dirty (1 staged, 1 unstaged)", res4.stdout)
+        
+        # Commit the staged file to make it tracked
+        self.run_cmd(["git", "commit", "-m", "commit dirty.txt"], cwd=feat_path)
+        # Remove the second untracked file to return to clean state
+        os.remove(dirty_file_2)
+        
+        # Modify the tracked file (will output ' M' in git status --porcelain)
+        with open(dirty_file, "a") as f:
+            f.write("more modifications\n")
+            
+        # Verify it reports as unstaged only and does not contain "staged" in the status
+        res5 = self.run_cmd([GWT_CLI_PATH, "list"], cwd=main_path)
+        self.assertIn("Dirty (1 unstaged)", res5.stdout)
+        self.assertNotIn("staged", res5.stdout.splitlines()[2].lower())
 
     def test_repair_command(self):
         project_path = os.path.join(self.test_dir, "project")

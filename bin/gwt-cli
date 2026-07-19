@@ -17,7 +17,7 @@ def run_git(args, cwd=None, capture_output=True, log_error=True):
     try:
         cmd = ["git"] + args
         res = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True, check=True)
-        return res.stdout.strip()
+        return res.stdout.rstrip()
     except subprocess.CalledProcessError as e:
         if log_error:
             err_msg = e.stderr.strip() if e.stderr else e.stdout.strip() if e.stdout else str(e)
