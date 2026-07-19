@@ -1,6 +1,15 @@
 # CHANGELOG
 
 
+## v0.3.1 (2026-07-19)
+
+### Bug Fixes
+
+- Add go command to shell wrapper cd check and remove redundant li…
+  ([#6](https://github.com/jlothian/worktree-tool/pull/6),
+  [`2d8fbfc`](https://github.com/jlothian/worktree-tool/commit/2d8fbfc7c0fdf7d9ba1a5e3cbd49fd1de1dbce00))
+
+
 ## v0.3.0 (2026-07-19)
 
 ### Features

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "git-worktree-tool"
-version = "0.3.0"
+version = "0.3.1"
 description = "A CLI tool for managing Git worktrees using a bare repository structure."
 readme = "README.md"
 requires-python = ">=3.9"
