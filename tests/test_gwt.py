@@ -148,15 +148,26 @@ class TestGitWorktreeTool(unittest.TestCase):
         with open(dirty_file, "w") as f:
             f.write("some state\n")
             
+        # Let's stage it to make it a staged change
+        self.run_cmd(["git", "add", "dirty.txt"], cwd=feat_path)
+        
+        # Add another untracked file to make it unstaged change
+        dirty_file_2 = os.path.join(feat_path, "dirty2.txt")
+        with open(dirty_file_2, "w") as f:
+            f.write("another state\n")
+            
         # Run clean and reject deletion (input "n")
         res = self.run_cmd([GWT_CLI_PATH, "clean"], cwd=main_path, input_str="n\n")
         self.assertEqual(res.returncode, 0)
         self.assertIn("NOT clean", res.stderr)
+        self.assertIn("Staged changes:", res.stderr)
+        self.assertIn("Unstaged changes:", res.stderr)
         self.assertIn("Skipping deletion", res.stderr)
         
         # Verify worktree still exists
         self.assertTrue(os.path.exists(feat_path))
         self.assertTrue(os.path.exists(dirty_file))
+        self.assertTrue(os.path.exists(dirty_file_2))
 
     def test_cleanup_dirty_worktree_approved(self):
         project_path = os.path.join(self.test_dir, "project")
@@ -207,14 +218,28 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.assertIn("Merged", stdout)
         self.assertIn("Clean", stdout)
         
-        # Create a dirty file in feature worktree
-        dirty_file = os.path.join(project_path, "feature-my-feat", "dirty.txt")
+        # Create a dirty file in feature worktree (unstaged)
+        feat_path = os.path.join(project_path, "feature-my-feat")
+        dirty_file = os.path.join(feat_path, "dirty.txt")
         with open(dirty_file, "w") as f:
             f.write("state\n")
             
-        # List again and verify it reports dirty status
+        # List again and verify it reports unstaged dirty status
         res2 = self.run_cmd([GWT_CLI_PATH, "list"], cwd=main_path)
-        self.assertIn("Dirty (1 file)", res2.stdout)
+        self.assertIn("Dirty (1 unstaged)", res2.stdout)
+        
+        # Stage the file and check list again
+        self.run_cmd(["git", "add", "dirty.txt"], cwd=feat_path)
+        res3 = self.run_cmd([GWT_CLI_PATH, "list"], cwd=main_path)
+        self.assertIn("Dirty (1 staged)", res3.stdout)
+        
+        # Add another untracked file to verify mixed status
+        dirty_file_2 = os.path.join(feat_path, "dirty2.txt")
+        with open(dirty_file_2, "w") as f:
+            f.write("state2\n")
+            
+        res4 = self.run_cmd([GWT_CLI_PATH, "list"], cwd=main_path)
+        self.assertIn("Dirty (1 staged, 1 unstaged)", res4.stdout)
 
     def test_repair_command(self):
         project_path = os.path.join(self.test_dir, "project")

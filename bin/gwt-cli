@@ -84,6 +84,33 @@ def list_worktrees(project_root):
         
     return worktrees
 
+def parse_git_status(status_output):
+    """Parses git status --porcelain output and returns (staged_files, unstaged_files).
+    Each list contains tuples of (status_indicator, file_path).
+    """
+    staged = []
+    unstaged = []
+    
+    for line in status_output.splitlines():
+        if len(line) < 4:
+            continue
+        status_part = line[:2]
+        file_path = line[3:]
+        
+        idx_status = status_part[0]
+        worktree_status = status_part[1]
+        
+        is_staged = idx_status not in (" ", "?", "!")
+        is_unstaged = worktree_status != " " or status_part == "??"
+        
+        if is_staged:
+            staged.append((idx_status, file_path))
+        if is_unstaged:
+            indicator = worktree_status if status_part != "??" else "??"
+            unstaged.append((indicator, file_path))
+            
+    return staged, unstaged
+
 def cmd_init(url, directory=None):
     if not directory:
         base = url.split("/")[-1]
@@ -255,8 +282,9 @@ def cmd_clean():
             continue
             
         try:
-            status_output = run_git(["status", "--porcelain"], cwd=path)
-            is_clean = (len(status_output.strip()) == 0)
+            status_output = run_git(["status", "--porcelain"], cwd=path, log_error=False)
+            staged, unstaged = parse_git_status(status_output)
+            is_clean = (len(staged) == 0 and len(unstaged) == 0)
         except Exception as e:
             print(f"Error checking status of worktree '{branch_name}' at '{path}': {e}", file=sys.stderr)
             continue
@@ -270,8 +298,17 @@ def cmd_clean():
             except Exception as e:
                 print(f"Error deleting worktree '{branch_name}': {e}", file=sys.stderr)
         else:
-            print(f"\nWorktree '{branch_name}' at '{path}' is merged but NOT clean. Dirty files:", file=sys.stderr)
-            print(status_output, file=sys.stderr)
+            print(f"\nWorktree '{branch_name}' at '{path}' is merged but NOT clean.", file=sys.stderr)
+            if staged:
+                print("Staged changes:", file=sys.stderr)
+                for indicator, file_p in staged:
+                    print(f"  {indicator} {file_p}", file=sys.stderr)
+                print("", file=sys.stderr)
+            if unstaged:
+                print("Unstaged changes:", file=sys.stderr)
+                for indicator, file_p in unstaged:
+                    print(f"  {indicator} {file_p}", file=sys.stderr)
+                print("", file=sys.stderr)
             
             try:
                 sys.stderr.write(f"Delete these files and the worktree '{branch_name}'? [y/N]: ")
@@ -306,8 +343,8 @@ def cmd_list():
         print(f"Error listing worktrees: {e}", file=sys.stderr)
         sys.exit(1)
         
-    print(f"{'WORKTREE':<20} {'BRANCH':<20} {'MERGE STATUS':<15} {'FILE STATUS':<15}")
-    print("-" * 75)
+    print(f"{'WORKTREE':<20} {'BRANCH':<20} {'MERGE STATUS':<15} {'FILE STATUS'}")
+    print("-" * 80)
     
     for wt in worktrees:
         path = wt.get("path")
@@ -317,11 +354,11 @@ def cmd_list():
         dir_name = os.path.basename(path)
         
         if is_bare or path == common_dir:
-            print(f"{'.bare (repo)':<20} {'-':<20} {'-':<15} {'-':<15}")
+            print(f"{'.bare (repo)':<20} {'-':<20} {'-':<15} {'-'}")
             continue
             
         if not branch_ref:
-            print(f"{dir_name:<20} {'(detached)':<20} {'-':<15} {'-':<15}")
+            print(f"{dir_name:<20} {'(detached)':<20} {'-':<15} {'-'}")
             continue
             
         branch_name = branch_ref.replace("refs/heads/", "")
@@ -342,12 +379,22 @@ def cmd_list():
         # File status
         try:
             status_output = run_git(["status", "--porcelain"], cwd=path, log_error=False)
-            num_dirty = len(status_output.strip().splitlines()) if status_output.strip() else 0
-            file_status = "Clean" if num_dirty == 0 else f"Dirty ({num_dirty} file{'s' if num_dirty > 1 else ''})"
+            staged, unstaged = parse_git_status(status_output)
+            num_staged = len(staged)
+            num_unstaged = len(unstaged)
+            
+            if num_staged == 0 and num_unstaged == 0:
+                file_status = "Clean"
+            elif num_staged > 0 and num_unstaged > 0:
+                file_status = f"Dirty ({num_staged} staged, {num_unstaged} unstaged)"
+            elif num_staged > 0:
+                file_status = f"Dirty ({num_staged} staged)"
+            else:
+                file_status = f"Dirty ({num_unstaged} unstaged)"
         except Exception:
             file_status = "Unknown"
             
-        print(f"{dir_name:<20} {branch_name:<20} {merge_status:<15} {file_status:<15}")
+        print(f"{dir_name:<20} {branch_name:<20} {merge_status:<15} {file_status}")
 
 def cmd_repair():
     common_dir = get_git_common_dir()
