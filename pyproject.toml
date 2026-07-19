@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build-meta"
+
+[project]
+name = "git-worktree-tool"
+version = "1.0.0"
+description = "A CLI tool for managing Git worktrees using a bare repository structure."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    { name = "J. Lothian" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[tool.setuptools]
+script-files = ["bin/gwt-cli"]
+
+[tool.semantic_release]
+version_variables = ["bin/gwt-cli:__version__"]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+upload_to_release = true
+build_command = "pip install build && python -m build"

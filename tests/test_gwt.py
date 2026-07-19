@@ -279,6 +279,47 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.assertEqual(res.returncode, 0, f"repair failed: {res.stderr}")
         self.assertIn("repair", res.stderr.lower() + res.stdout.lower())
 
+    def test_init_custom_main_branch(self):
+        project_path = os.path.join(self.test_dir, "project")
+
+        res = self.run_cmd(
+            [
+                GWT_CLI_PATH,
+                "init",
+                self.remote_path,
+                project_path,
+                "--main",
+                "custom-main",
+            ]
+        )
+        self.assertEqual(res.returncode, 0, f"init failed: {res.stderr}")
+
+        main_path = os.path.join(project_path, "custom-main")
+        self.assertTrue(os.path.isdir(main_path))
+        self.assertTrue(os.path.isfile(os.path.join(main_path, "README.md")))
+
+    def test_init_shell_output(self):
+        res_zsh = self.run_cmd([GWT_CLI_PATH, "init-shell", "zsh"])
+        self.assertEqual(res_zsh.returncode, 0)
+        self.assertIn("gwt()", res_zsh.stdout)
+        self.assertIn("_gwt_zsh()", res_zsh.stdout)
+        self.assertIn("compdef _gwt_zsh gwt", res_zsh.stdout)
+
+        res_bash = self.run_cmd([GWT_CLI_PATH, "init-shell", "bash"])
+        self.assertEqual(res_bash.returncode, 0)
+        self.assertIn("gwt()", res_bash.stdout)
+        self.assertIn("_gwt_bash()", res_bash.stdout)
+        self.assertIn("complete -F _gwt_bash gwt", res_bash.stdout)
+
+    def test_version_output(self):
+        res = self.run_cmd([GWT_CLI_PATH, "--version"])
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("1.0.0", res.stdout + res.stderr)
+
+        res_v = self.run_cmd([GWT_CLI_PATH, "-v"])
+        self.assertEqual(res_v.returncode, 0)
+        self.assertIn("1.0.0", res_v.stdout + res_v.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

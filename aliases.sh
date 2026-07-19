@@ -11,18 +11,20 @@ fi
 
 # Resolve directory of this script in both Bash and Zsh
 if [ -n "$BASH_VERSION" ]; then
-    GWT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    _GWT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 elif [ -n "$ZSH_VERSION" ]; then
     # shellcheck disable=SC2296
-    GWT_DIR="$( cd "$( dirname "${(%):-%x}" )" && pwd )"
+    _GWT_DIR="$( cd "$( dirname "${(%):-%x}" )" && pwd )"
 else
-    GWT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+    _GWT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 fi
 
 # Add bin to path if not already present
-if [[ ":$PATH:" != *":$GWT_DIR/bin:"* ]]; then
-    export PATH="$GWT_DIR/bin:$PATH"
+if [[ ":$PATH:" != *":$_GWT_DIR/bin:"* ]]; then
+    export PATH="$_GWT_DIR/bin:$PATH"
 fi
+
+unset _GWT_DIR
 
 # Wrapper function for gwt to allow directory changing (cd) on 'new' and 'init'
 gwt() {
