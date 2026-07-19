@@ -326,7 +326,7 @@ def cmd_clean():
                 )
 
 
-def cmd_list(interactive=False):
+def cmd_list():
     common_dir = get_git_common_dir()
     if not common_dir:
         print("Error: Not in a git repository.", file=sys.stderr)
@@ -419,61 +419,6 @@ def cmd_list(interactive=False):
 
     fmt = f"{{:<{worktree_w}}} {{:<{branch_w}}} {{:<{merge_w}}} {{}}"
     total_width = worktree_w + branch_w + merge_w + len("FILE STATUS")
-
-    if interactive and sys.stderr.isatty():
-        if not shutil.which("fzf"):
-            print(
-                "Error: fzf is required for interactive mode. Please install it (e.g. 'brew install fzf') or run without '-i'.",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-
-        # Generate fzf input lines (excluding .bare)
-        fzf_lines = [
-            fmt.format("WORKTREE", "BRANCH", "MERGE STATUS", "FILE STATUS"),
-            "-" * max(80, total_width),
-        ]
-        path_map = {}
-        for r, wt in zip(rows, worktrees):
-            if r[0] == ".bare (repo)":
-                continue
-            fzf_lines.append(fmt.format(r[0], r[1], r[2], r[3]))
-            path_map[r[0]] = wt.get("path")
-
-        fzf_input = "\n".join(fzf_lines) + "\n"
-
-        cmd = [
-            "fzf",
-            "--header-lines=2",
-            "--prompt=Select worktree to cd into: ",
-            "--height=10",
-            "--layout=reverse",
-            "--border",
-            "--preview",
-            f"git -C {project_root}/{{1}} log --oneline -n 5 2>/dev/null || echo 'No git history'",
-        ]
-
-        try:
-            proc = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=sys.stderr,
-                text=True,
-            )
-            fzf_output, _ = proc.communicate(input=fzf_input)
-            if proc.returncode == 0 and fzf_output.strip():
-                parts = fzf_output.strip().split()
-                if parts:
-                    dir_name = parts[0]
-                    target_path = path_map.get(dir_name)
-                    if target_path and os.path.isdir(target_path):
-                        print(target_path)
-                        sys.exit(0)
-            sys.exit(0)
-        except Exception as e:
-            print(f"Error running interactive menu: {e}", file=sys.stderr)
-            sys.exit(1)
 
     print(fmt.format("WORKTREE", "BRANCH", "MERGE STATUS", "FILE STATUS"))
     print("-" * max(80, total_width))
@@ -651,17 +596,7 @@ if alias wt >/dev/null 2>&1; then
 fi
 
 function wt {
-    local is_interactive=0
-    if [ "$1" = "list" ]; then
-        for arg in "$@"; do
-            if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
-                is_interactive=1
-                break
-            fi
-        done
-    fi
-
-    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ "$1" = "go" ]; then
         local subcmd="$1"
         shift
         local target_dir
@@ -684,6 +619,7 @@ _wt_zsh() {
         'clean:Clean up merged worktrees'
         'cleanup:Clean up merged worktrees'
         'list:List all active worktrees and their status'
+        'go:Navigate to an existing worktree (interactive if no name given)'
         'repair:Repair broken worktree pointers'
     )
 
@@ -695,6 +631,12 @@ _wt_zsh() {
                 local -a branches
                 branches=($(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD'))
                 _describe -t branches 'branches' branches
+                ;;
+            go)
+                local -a worktrees
+                # Get worktree directories and branches
+                mapfile -t worktrees < <(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}')
+                _describe -t worktrees 'worktrees' worktrees
                 ;;
         esac
     fi
@@ -711,17 +653,7 @@ if alias wt >/dev/null 2>&1; then
 fi
 
 function wt {
-    local is_interactive=0
-    if [ "$1" = "list" ]; then
-        for arg in "$@"; do
-            if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
-                is_interactive=1
-                break
-            fi
-        done
-    fi
-
-    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ "$1" = "go" ]; then
         local subcmd="$1"
         shift
         local target_dir
@@ -741,7 +673,7 @@ _wt_bash() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="init new clean cleanup list repair"
+    opts="init new clean cleanup list go repair"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -752,6 +684,12 @@ _wt_bash() {
                 local branch_list
                 branch_list=$(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD')
                 COMPREPLY=( $(compgen -W "${branch_list}" -- "${cur}") )
+                return 0
+                ;;
+            go)
+                local worktree_list
+                worktree_list=$(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}' | tr '\n' ' ')
+                COMPREPLY=( $(compgen -W "${worktree_list}" -- "${cur}") )
                 return 0
                 ;;
         esac

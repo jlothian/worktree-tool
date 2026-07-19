@@ -73,13 +73,7 @@ def main():
     list_parser = subparsers.add_parser(
         "list", help="List all active worktrees and their status"
     )
-    list_parser.add_argument(
-        "-i",
-        "--interactive",
-        action="store_true",
-        help="Launch interactive fzf picker to select and cd to a worktree",
-    )
-    list_parser.set_defaults(handler=lambda args: cmd_list(args.interactive))
+    list_parser.set_defaults(handler=lambda args: cmd_list())
 
     go_parser = subparsers.add_parser(
         "go", help="Navigate to an existing worktree (interactive if no name given)"
