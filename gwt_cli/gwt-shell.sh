@@ -1,6 +1,6 @@
 # This file is a reference and environment script for git-worktree-tool (gwt).
 # To use these aliases, source this file from your shell:
-#   source aliases.sh
+#   source gwt-shell.sh
 
 # shellcheck shell=bash
 
@@ -10,18 +10,29 @@ if alias wt >/dev/null 2>&1; then
 fi
 
 # Resolve directory of this script in both Bash and Zsh
-if [ -n "$BASH_VERSION" ]; then
+_GWT_DIR=""
+if [ -n "${BASH_SOURCE[0]}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     _GWT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 elif [ -n "$ZSH_VERSION" ]; then
     # shellcheck disable=SC2296
-    _GWT_DIR="$( cd "$( dirname "${(%):-%x}" )" && pwd )"
-else
-    _GWT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+    _ZSH_SRC="${(%):-%x}"
+    if [ -f "$_ZSH_SRC" ]; then
+        _GWT_DIR="$( cd "$( dirname "$_ZSH_SRC" )" && pwd )"
+    fi
 fi
 
-# Add bin to path if not already present
-if [[ ":$PATH:" != *":$_GWT_DIR/bin:"* ]]; then
-    export PATH="$_GWT_DIR/bin:$PATH"
+# Add bin to path if not already present (checking both local bin/ and parent bin/)
+if [ -n "$_GWT_DIR" ]; then
+    if [ -d "$_GWT_DIR/bin" ]; then
+        _BIN_DIR="$_GWT_DIR/bin"
+    elif [ -d "$(dirname "$_GWT_DIR")/bin" ]; then
+        _BIN_DIR="$(dirname "$_GWT_DIR")/bin"
+    fi
+    
+    if [ -n "$_BIN_DIR" ] && [[ ":$PATH:" != *":$_BIN_DIR:"* ]]; then
+        export PATH="$_BIN_DIR:$PATH"
+    fi
+    unset _BIN_DIR
 fi
 
 unset _GWT_DIR

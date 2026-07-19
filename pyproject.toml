@@ -21,6 +21,12 @@ dependencies = []
 [project.scripts]
 gwt-cli = "gwt_cli:main"
 
+[tool.setuptools]
+packages = ["gwt_cli"]
+
+[tool.setuptools.package-data]
+gwt_cli = ["gwt-shell.sh"]
+
 [tool.semantic_release]
 version_variables = ["bin/gwt-cli:__version__", "gwt_cli/__init__.py:__version__"]
 version_toml = ["pyproject.toml:project.version"]
