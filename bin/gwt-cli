@@ -561,7 +561,7 @@ def cmd_list(interactive=False):
     fmt = f"{{:<{worktree_w}}} {{:<{branch_w}}} {{:<{merge_w}}} {{}}"
     total_width = worktree_w + branch_w + merge_w + len("FILE STATUS")
 
-    if interactive and sys.stdout.isatty():
+    if interactive and sys.stderr.isatty():
         import shutil
 
         if not shutil.which("fzf"):
