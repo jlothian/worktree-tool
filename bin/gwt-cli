@@ -132,6 +132,7 @@ def cmd_init(url, directory=None):
             print(f"Warning: Could not create main worktree for '{default_branch}'. Repo might be empty: {e}", file=sys.stderr)
             
         print("Initialization completed successfully.", file=sys.stderr)
+        print(directory)
     except Exception as e:
         print(f"Error during initialization: {e}", file=sys.stderr)
         if os.path.exists(directory):

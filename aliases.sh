@@ -21,13 +21,14 @@ if [[ ":$PATH:" != *":$GWT_DIR/bin:"* ]]; then
     export PATH="$GWT_DIR/bin:$PATH"
 fi
 
-# Wrapper function for gwt to allow directory changing (cd) on 'new'
+# Wrapper function for gwt to allow directory changing (cd) on 'new' and 'init'
 gwt() {
-    if [ "$1" = "new" ]; then
+    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+        local subcmd="$1"
         shift
         local target_dir
         # Run gwt-cli, capturing only stdout (the path on success)
-        target_dir=$(gwt-cli new "$@")
+        target_dir=$(gwt-cli "$subcmd" "$@")
         local exit_code=$?
         if [ $exit_code -eq 0 ] && [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
             cd "$target_dir"
