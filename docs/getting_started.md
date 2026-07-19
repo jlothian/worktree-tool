@@ -70,8 +70,22 @@ Navigates to an existing worktree.
 Scans for worktree branches that have been merged into `main` and deletes them.
 * **Behavior**:
   - Automatically deletes merged worktrees and their local branches if they are clean.
+  - Supports **Squash Merge Detection**: When a standard ancestor check fails, the tool compares the tree hash of the branch's tip with the tree hashes of the last 100 commits in `main` to identify branches that were squash-merged.
   - If a merged worktree has uncommitted or staged changes, it surfaces the files under `Staged changes:` and `Unstaged changes:` headers and prompts the user for confirmation.
   - Skips deleting the current working directory of your terminal to avoid breaking your shell path.
+
+### `wt delete [worktree]` (or `remove`, `rm`)
+Deletes a specific worktree and its branch.
+* **Arguments**:
+  - `[worktree]`: Optional name of the worktree to delete (can be directory name or branch name). If omitted, launches an interactive `fzf` picker to select from active worktrees.
+  - `-f`, `--force`: Bypasses safety prompts for uncommitted changes and unmerged commits.
+* **Behavior**:
+  - If no worktree name is provided, opens an interactive `fzf` list of worktrees (excluding main and active worktrees) with a preview panel showing recent commits for the highlighted option.
+  - **Safety Checks**:
+    - Checks for uncommitted (staged/unstaged) changes. If present, lists files and prompts: `Delete anyway? [y/N]`.
+    - Checks if the branch is merged into `main` (using both commit ancestry and squash tree-hash checks). If not merged, warns of potential commit loss and prompts: `Delete anyway? [y/N]`.
+    - Blocks deleting the main branch worktree or the active worktree currently occupied by the user.
+  - **Execution**: Runs `git worktree remove --force` followed by `git branch -D` to fully clean up the worktree and branch.
 
 ### `wt repair`
 Fixes broken worktree pointer paths if you relocate the parent project directory.
@@ -129,4 +143,12 @@ $ cd ../main && git merge feature/analytics
 $ wt clean
 Worktree 'feature/analytics' at 'my-project/feature-analytics' is merged and clean. Deleting...
 Successfully deleted worktree and branch 'feature/analytics'.
+
+# 8. Forcefully delete an unmerged feature branch/worktree that you no longer need
+$ wt delete feature/analytics-v2
+Warning: Branch 'feature/analytics-v2' is not merged into main.
+Deleting it will result in loss of commits.
+Delete anyway? [y/N]: y
+Deleting worktree at 'my-project/feature-analytics-v2'...
+Successfully deleted worktree and branch 'feature/analytics-v2'.
 ```
