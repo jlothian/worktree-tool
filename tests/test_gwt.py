@@ -48,7 +48,9 @@ class TestGitWorktreeTool(unittest.TestCase):
             main_path = os.path.join(project_path, "main")
             if os.path.exists(main_path):
                 self.run_cmd(["git", "config", "user.name", "Test User"], cwd=main_path)
-                self.run_cmd(["git", "config", "user.email", "test@example.com"], cwd=main_path)
+                self.run_cmd(
+                    ["git", "config", "user.email", "test@example.com"], cwd=main_path
+                )
         return res
 
     def test_init_success(self):
