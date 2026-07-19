@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.2 (2026-07-19)
+
+### Bug Fixes
+
+- Switch to console_scripts entry point to fix spaces in pipx venv paths
+  ([`3a8008a`](https://github.com/jlothian/worktree-tool/commit/3a8008a377f1982dabe438eca7c8a7d7d0326b67))
+
+
 ## v0.1.1 (2026-07-19)
 
 ### Bug Fixes
