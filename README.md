@@ -6,7 +6,11 @@ A CLI tool for managing Git worktrees using a bare repository structure.
 
 ## Setup
 
-1. **Install the package**:
+1. **Install**:
+   ```bash
+   pipx install git+https://github.com/jlothian/worktree-tool.git
+   ```
+   Or from a local clone:
    ```bash
    pip install .
    ```
