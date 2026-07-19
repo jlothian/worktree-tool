@@ -595,6 +595,10 @@ def cmd_init_shell(shell_type=None):
 
     if shell_type == "zsh":
         print("""# Autocompletions and wrapper for gwt (Zsh)
+if alias gwt >/dev/null 2>&1; then
+    unalias gwt
+fi
+
 gwt() {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
@@ -641,6 +645,10 @@ fi
 """)
     elif shell_type == "bash":
         print("""# Autocompletions and wrapper for gwt (Bash)
+if alias gwt >/dev/null 2>&1; then
+    unalias gwt
+fi
+
 gwt() {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
