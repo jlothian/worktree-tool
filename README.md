@@ -6,16 +6,21 @@ A CLI tool for managing Git worktrees using a bare repository structure.
 
 ## Setup
 
-Source the environment script to add the CLI to your path and enable automatic directory changing (`cd`) on worktree creation:
+1. **Install the package**:
+   ```bash
+   pip install .
+   ```
 
-```bash
-source aliases.sh
-```
+2. **Add shell wrapper & autocompletions** (add this to `~/.zshrc` or `~/.bashrc`):
+   ```bash
+   eval "$(gwt-cli init-shell)"
+   ```
+   *(For local development, you can instead source `source aliases.sh`)*
 
 ## Commands
 
-### `gwt init <url> [directory]`
-Clones the repository as a bare repository into `<directory>/.bare`, sets up the main worktree, and configures upstream tracking.
+### `gwt init <url> [directory] [--main <branch>]`
+Clones the repository as a bare repository into `<directory>/.bare`, sets up the main worktree (checking out the remote HEAD branch or the custom branch name if `--main` is specified), and configures upstream tracking.
 
 ### `gwt new <branch>`
 Fetches remote updates, updates `main`, and branches off it. Slashes in the branch name are converted to dashes in the directory name. Automatically `cd`s the shell into the new directory.
@@ -28,6 +33,9 @@ Displays a status table of all active worktrees, branches, merge status, and cle
 
 ### `gwt repair`
 Fixes broken worktree pointer paths if the project directory is relocated.
+
+### `gwt --version` (or `-v`)
+Prints the current version of the tool.
 
 ## Running Tests
 
