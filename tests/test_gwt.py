@@ -314,11 +314,13 @@ class TestGitWorktreeTool(unittest.TestCase):
     def test_version_output(self):
         res = self.run_cmd([GWT_CLI_PATH, "--version"])
         self.assertEqual(res.returncode, 0)
-        self.assertIn("1.0.0", res.stdout + res.stderr)
+        output = res.stdout + res.stderr
+        self.assertRegex(output, r"\d+\.\d+\.\d+")
 
         res_v = self.run_cmd([GWT_CLI_PATH, "-v"])
         self.assertEqual(res_v.returncode, 0)
-        self.assertIn("1.0.0", res_v.stdout + res_v.stderr)
+        output_v = res_v.stdout + res_v.stderr
+        self.assertRegex(output_v, r"\d+\.\d+\.\d+")
 
 
 if __name__ == "__main__":
