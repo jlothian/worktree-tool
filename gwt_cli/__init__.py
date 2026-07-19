@@ -4,7 +4,7 @@ import sys
 import subprocess
 import shutil
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 
 class StderrArgumentParser(argparse.ArgumentParser):

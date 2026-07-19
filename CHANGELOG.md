@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.3 (2026-07-19)
+
+### Bug Fixes
+
+- Add unalias gwt guard to init-shell outputs
+  ([`a4a1ec7`](https://github.com/jlothian/worktree-tool/commit/a4a1ec70682976c352a10818a2845a5b6a082e2d))
+
+
 ## v0.1.2 (2026-07-19)
 
 ### Bug Fixes
