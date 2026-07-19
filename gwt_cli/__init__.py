@@ -9,6 +9,7 @@ from gwt_cli.commands import (
     cmd_go,
     cmd_repair,
     cmd_init_shell,
+    cmd_delete,
 )
 
 __version__ = "0.3.1"
@@ -90,6 +91,26 @@ def main():
         "repair", help="Repair broken worktree pointers"
     )
     repair_parser.set_defaults(handler=lambda args: cmd_repair())
+
+    for name in ["delete", "remove", "rm"]:
+        del_parser = subparsers.add_parser(
+            name, help="Delete a specific worktree and its branch"
+        )
+        del_parser.add_argument(
+            "worktree",
+            nargs="?",
+            default=None,
+            help="Name of the worktree to delete (interactive picker if omitted)",
+        )
+        del_parser.add_argument(
+            "-f",
+            "--force",
+            action="store_true",
+            help="Force deletion, bypassing safety status and merge checks",
+        )
+        del_parser.set_defaults(
+            handler=lambda args: cmd_delete(args.worktree, args.force)
+        )
 
     args = parser.parse_args()
     args.handler(args)

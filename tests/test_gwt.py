@@ -396,6 +396,163 @@ class TestGitWorktreeTool(unittest.TestCase):
         output_v = res_v.stdout + res_v.stderr
         self.assertRegex(output_v, r"\d+\.\d+\.\d+")
 
+    def test_delete_clean_merged_worktree(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+        feat_path = os.path.join(project_path, "feature-test-delete")
+
+        # Create worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-delete"], cwd=main_path)
+
+        # Merge it into main (clean and merged)
+        self.run_cmd(["git", "merge", "feature/test-delete"], cwd=main_path)
+
+        # Run delete
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path
+        )
+        self.assertEqual(res.returncode, 0, f"delete failed: {res.stderr}")
+        self.assertIn("Successfully deleted", res.stderr)
+
+        # Verify worktree is removed
+        self.assertFalse(os.path.exists(feat_path))
+
+        # Verify branch is deleted
+        branches = self.run_cmd(["git", "branch"], cwd=main_path).stdout
+        self.assertNotIn("feature/test-delete", branches)
+
+    def test_delete_dirty_worktree_aborted_or_approved(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+        feat_path = os.path.join(project_path, "feature-test-delete")
+
+        # Create worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-delete"], cwd=main_path)
+
+        # Make dirty
+        dirty_file = os.path.join(feat_path, "dirty.txt")
+        with open(dirty_file, "w") as f:
+            f.write("uncommitted state\n")
+
+        # Run delete and abort (input "n")
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="n\n",
+        )
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("has uncommitted changes", res.stderr)
+        self.assertIn("Deletion aborted", res.stderr)
+        self.assertTrue(os.path.exists(feat_path))
+
+        # Run delete and approve (input "y")
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="y\n",
+        )
+        self.assertEqual(res2.returncode, 0, f"delete failed: {res2.stderr}")
+        self.assertIn("Successfully deleted", res2.stderr)
+        self.assertFalse(os.path.exists(feat_path))
+
+    def test_delete_unmerged_worktree_aborted_or_approved(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+        feat_path = os.path.join(project_path, "feature-test-delete")
+
+        # Create worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-delete"], cwd=main_path)
+
+        # Make a commit in feature worktree to make it unmerged
+        with open(os.path.join(feat_path, "feat.txt"), "w") as f:
+            f.write("feat\n")
+        self.run_cmd(["git", "add", "feat.txt"], cwd=feat_path)
+        self.run_cmd(["git", "commit", "-m", "add feat"], cwd=feat_path)
+
+        # Run delete and abort (input "n")
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="n\n",
+        )
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("is not merged into main", res.stderr)
+        self.assertIn("Deletion aborted", res.stderr)
+        self.assertTrue(os.path.exists(feat_path))
+
+        # Run delete and approve (input "y")
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="y\n",
+        )
+        self.assertEqual(res2.returncode, 0, f"delete failed: {res2.stderr}")
+        self.assertIn("Successfully deleted", res2.stderr)
+        self.assertFalse(os.path.exists(feat_path))
+
+    def test_delete_with_force_flag(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+        feat_path = os.path.join(project_path, "feature-test-delete")
+
+        # Create worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-delete"], cwd=main_path)
+
+        # Add commit (unmerged) and dirty file
+        with open(os.path.join(feat_path, "feat.txt"), "w") as f:
+            f.write("feat\n")
+        self.run_cmd(["git", "add", "feat.txt"], cwd=feat_path)
+        self.run_cmd(["git", "commit", "-m", "add feat"], cwd=feat_path)
+
+        with open(os.path.join(feat_path, "dirty.txt"), "w") as f:
+            f.write("dirty\n")
+
+        # Run delete with force flag -- no prompts
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete", "--force"], cwd=main_path
+        )
+        self.assertEqual(res.returncode, 0, f"delete failed: {res.stderr}")
+        self.assertIn("Successfully deleted", res.stderr)
+        self.assertFalse(os.path.exists(feat_path))
+
+        # Test rm alias as well
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-rm"], cwd=main_path)
+        res_rm = self.run_cmd(
+            [GWT_CLI_PATH, "rm", "feature/test-rm", "-f"], cwd=main_path
+        )
+        self.assertEqual(res_rm.returncode, 0, f"rm failed: {res_rm.stderr}")
+        self.assertFalse(os.path.exists(os.path.join(project_path, "feature-test-rm")))
+
+    def test_delete_prevent_main_or_active(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+
+        # Try to delete main
+        res = self.run_cmd([GWT_CLI_PATH, "delete", "main"], cwd=main_path)
+        self.assertNotEqual(res.returncode, 0)
+        self.assertIn("Cannot delete the main branch worktree", res.stderr)
+
+        # Create a feature worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/test-delete"], cwd=main_path)
+        feat_path = os.path.join(project_path, "feature-test-delete")
+
+        # Run command from inside feature worktree and try to delete it
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature-test-delete"], cwd=feat_path
+        )
+        self.assertNotEqual(res2.returncode, 0)
+        self.assertIn("Cannot delete the active worktree", res2.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
