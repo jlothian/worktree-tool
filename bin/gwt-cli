@@ -343,8 +343,10 @@ def cmd_list():
         print(f"Error listing worktrees: {e}", file=sys.stderr)
         sys.exit(1)
         
-    print(f"{'WORKTREE':<20} {'BRANCH':<20} {'MERGE STATUS':<15} {'FILE STATUS'}")
-    print("-" * 80)
+    rows = []
+    max_worktree_len = len("WORKTREE")
+    max_branch_len = len("BRANCH")
+    max_merge_len = len("MERGE STATUS")
     
     for wt in worktrees:
         path = wt.get("path")
@@ -354,11 +356,11 @@ def cmd_list():
         dir_name = os.path.basename(path)
         
         if is_bare or path == common_dir:
-            print(f"{'.bare (repo)':<20} {'-':<20} {'-':<15} {'-'}")
+            rows.append((".bare (repo)", "-", "-", "-"))
             continue
             
         if not branch_ref:
-            print(f"{dir_name:<20} {'(detached)':<20} {'-':<15} {'-'}")
+            rows.append((dir_name, "(detached)", "-", "-"))
             continue
             
         branch_name = branch_ref.replace("refs/heads/", "")
@@ -394,7 +396,25 @@ def cmd_list():
         except Exception:
             file_status = "Unknown"
             
-        print(f"{dir_name:<20} {branch_name:<20} {merge_status:<15} {file_status}")
+        rows.append((dir_name, branch_name, merge_status, file_status))
+        
+    for r in rows:
+        max_worktree_len = max(max_worktree_len, len(r[0]))
+        max_branch_len = max(max_branch_len, len(r[1]))
+        max_merge_len = max(max_merge_len, len(r[2]))
+        
+    worktree_w = max_worktree_len + 3
+    branch_w = max_branch_len + 3
+    merge_w = max_merge_len + 3
+    
+    fmt = f"{{:<{worktree_w}}} {{:<{branch_w}}} {{:<{merge_w}}} {{}}"
+    
+    print(fmt.format("WORKTREE", "BRANCH", "MERGE STATUS", "FILE STATUS"))
+    total_width = worktree_w + branch_w + merge_w + len("FILE STATUS")
+    print("-" * max(80, total_width))
+    
+    for r in rows:
+        print(fmt.format(r[0], r[1], r[2], r[3]))
 
 def cmd_repair():
     common_dir = get_git_common_dir()
