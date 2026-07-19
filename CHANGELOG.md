@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.4 (2026-07-19)
+
+### Bug Fixes
+
+- Change wrapper syntax to function gwt to avoid parse-time alias expansion error
+  ([`b244899`](https://github.com/jlothian/worktree-tool/commit/b24489996662d92a936748fe98a981756f72ee30))
+
+
 ## v0.1.3 (2026-07-19)
 
 ### Bug Fixes
