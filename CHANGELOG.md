@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.1.1 (2026-07-19)
+
+### Bug Fixes
+
+- Use semver regex in version test instead of hardcoded string
+  ([`1d0c1c4`](https://github.com/jlothian/worktree-tool/commit/1d0c1c499edc4c331ee5225923df1dbc0597f634))
+
+### Documentation
+
+- Add pipx install instructions to README
+  ([`fd2403f`](https://github.com/jlothian/worktree-tool/commit/fd2403f121b04cdb8729c3b2971765c2c1dc5dff))
+
+
 ## v0.1.0 (2026-07-19)
 
 ### Features
