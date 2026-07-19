@@ -49,6 +49,8 @@ Creates a new worktree branched off the updated main branch.
 
 ### `wt list`
 Displays a status table of all active worktrees in the current project namespace.
+* **Arguments**:
+  * `-i`, `--interactive`: Launches an interactive selection menu powered by `fzf`. Allows moving between worktrees using arrow keys, displays a live preview of the recent commits for the selected worktree, and changes the shell directory (`cd`) to it on `Enter`. (Requires `fzf` installed).
 * **Outputs**:
   * `WORKTREE`: The directory name.
   * `BRANCH`: The Git branch currently checked out.

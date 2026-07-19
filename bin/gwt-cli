@@ -457,7 +457,7 @@ def cmd_clean():
                 )
 
 
-def cmd_list():
+def cmd_list(interactive=False):
     common_dir = get_git_common_dir()
     if not common_dir:
         print("Error: Not in a git repository.", file=sys.stderr)
@@ -559,9 +559,66 @@ def cmd_list():
     merge_w = max_merge_len + 3
 
     fmt = f"{{:<{worktree_w}}} {{:<{branch_w}}} {{:<{merge_w}}} {{}}"
+    total_width = worktree_w + branch_w + merge_w + len("FILE STATUS")
+
+    if interactive and sys.stderr.isatty():
+        import shutil
+
+        if not shutil.which("fzf"):
+            print(
+                "Error: fzf is required for interactive mode. Please install it (e.g. 'brew install fzf') or run without '-i'.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        # Generate fzf input lines (excluding .bare)
+        fzf_lines = [
+            fmt.format("WORKTREE", "BRANCH", "MERGE STATUS", "FILE STATUS"),
+            "-" * max(80, total_width),
+        ]
+        path_map = {}
+        for r, wt in zip(rows, worktrees):
+            if r[0] == ".bare (repo)":
+                continue
+            fzf_lines.append(fmt.format(r[0], r[1], r[2], r[3]))
+            path_map[r[0]] = wt.get("path")
+
+        fzf_input = "\n".join(fzf_lines) + "\n"
+
+        cmd = [
+            "fzf",
+            "--header-lines=2",
+            "--prompt=Select worktree to cd into: ",
+            "--height=10",
+            "--layout=reverse",
+            "--border",
+            "--preview",
+            f"git -C {project_root}/{{1}} log --oneline -n 5 2>/dev/null || echo 'No git history'",
+        ]
+
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=sys.stderr,
+                text=True,
+            )
+            fzf_output, _ = proc.communicate(input=fzf_input)
+            if proc.returncode == 0 and fzf_output.strip():
+                parts = fzf_output.strip().split()
+                if parts:
+                    dir_name = parts[0]
+                    target_path = path_map.get(dir_name)
+                    if target_path and os.path.isdir(target_path):
+                        print(target_path)
+                        sys.exit(0)
+            sys.exit(0)
+        except Exception as e:
+            print(f"Error running interactive menu: {e}", file=sys.stderr)
+            sys.exit(1)
 
     print(fmt.format("WORKTREE", "BRANCH", "MERGE STATUS", "FILE STATUS"))
-    total_width = worktree_w + branch_w + merge_w + len("FILE STATUS")
     print("-" * max(80, total_width))
 
     for r in rows:
@@ -601,7 +658,17 @@ if alias wt >/dev/null 2>&1; then
 fi
 
 function wt {
-    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+    local is_interactive=0
+    if [ "$1" = "list" ]; then
+        for arg in "$@"; do
+            if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
+                is_interactive=1
+                break
+            fi
+        done
+    fi
+
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
         local subcmd="$1"
         shift
         local target_dir
@@ -651,7 +718,17 @@ if alias wt >/dev/null 2>&1; then
 fi
 
 function wt {
-    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+    local is_interactive=0
+    if [ "$1" = "list" ]; then
+        for arg in "$@"; do
+            if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
+                is_interactive=1
+                break
+            fi
+        done
+    fi
+
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
         local subcmd="$1"
         shift
         local target_dir
@@ -738,7 +815,17 @@ def main():
 
     subparsers.add_parser("clean", help="Clean up merged worktrees")
     subparsers.add_parser("cleanup", help="Clean up merged worktrees")
-    subparsers.add_parser("list", help="List all active worktrees and their status")
+
+    list_parser = subparsers.add_parser(
+        "list", help="List all active worktrees and their status"
+    )
+    list_parser.add_argument(
+        "-i",
+        "--interactive",
+        action="store_true",
+        help="Launch interactive fzf picker to select and cd to a worktree",
+    )
+
     subparsers.add_parser("repair", help="Repair broken worktree pointers")
 
     args = parser.parse_args()
@@ -750,7 +837,7 @@ def main():
     elif args.command in ["clean", "cleanup"]:
         cmd_clean()
     elif args.command == "list":
-        cmd_list()
+        cmd_list(args.interactive)
     elif args.command == "repair":
         cmd_repair()
     elif args.command == "init-shell":
