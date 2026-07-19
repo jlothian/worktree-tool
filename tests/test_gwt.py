@@ -410,7 +410,9 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.run_cmd(["git", "merge", "feature/test-delete"], cwd=main_path)
 
         # Run delete
-        res = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path)
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path
+        )
         self.assertEqual(res.returncode, 0, f"delete failed: {res.stderr}")
         self.assertIn("Successfully deleted", res.stderr)
 
@@ -437,14 +439,22 @@ class TestGitWorktreeTool(unittest.TestCase):
             f.write("uncommitted state\n")
 
         # Run delete and abort (input "n")
-        res = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path, input_str="n\n")
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="n\n",
+        )
         self.assertNotEqual(res.returncode, 0)
         self.assertIn("has uncommitted changes", res.stderr)
         self.assertIn("Deletion aborted", res.stderr)
         self.assertTrue(os.path.exists(feat_path))
 
         # Run delete and approve (input "y")
-        res2 = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path, input_str="y\n")
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="y\n",
+        )
         self.assertEqual(res2.returncode, 0, f"delete failed: {res2.stderr}")
         self.assertIn("Successfully deleted", res2.stderr)
         self.assertFalse(os.path.exists(feat_path))
@@ -466,14 +476,22 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.run_cmd(["git", "commit", "-m", "add feat"], cwd=feat_path)
 
         # Run delete and abort (input "n")
-        res = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path, input_str="n\n")
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="n\n",
+        )
         self.assertNotEqual(res.returncode, 0)
         self.assertIn("is not merged into main", res.stderr)
         self.assertIn("Deletion aborted", res.stderr)
         self.assertTrue(os.path.exists(feat_path))
 
         # Run delete and approve (input "y")
-        res2 = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete"], cwd=main_path, input_str="y\n")
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete"],
+            cwd=main_path,
+            input_str="y\n",
+        )
         self.assertEqual(res2.returncode, 0, f"delete failed: {res2.stderr}")
         self.assertIn("Successfully deleted", res2.stderr)
         self.assertFalse(os.path.exists(feat_path))
@@ -498,14 +516,18 @@ class TestGitWorktreeTool(unittest.TestCase):
             f.write("dirty\n")
 
         # Run delete with force flag -- no prompts
-        res = self.run_cmd([GWT_CLI_PATH, "delete", "feature/test-delete", "--force"], cwd=main_path)
+        res = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature/test-delete", "--force"], cwd=main_path
+        )
         self.assertEqual(res.returncode, 0, f"delete failed: {res.stderr}")
         self.assertIn("Successfully deleted", res.stderr)
         self.assertFalse(os.path.exists(feat_path))
 
         # Test rm alias as well
         self.run_cmd([GWT_CLI_PATH, "new", "feature/test-rm"], cwd=main_path)
-        res_rm = self.run_cmd([GWT_CLI_PATH, "rm", "feature/test-rm", "-f"], cwd=main_path)
+        res_rm = self.run_cmd(
+            [GWT_CLI_PATH, "rm", "feature/test-rm", "-f"], cwd=main_path
+        )
         self.assertEqual(res_rm.returncode, 0, f"rm failed: {res_rm.stderr}")
         self.assertFalse(os.path.exists(os.path.join(project_path, "feature-test-rm")))
 
@@ -525,7 +547,9 @@ class TestGitWorktreeTool(unittest.TestCase):
         feat_path = os.path.join(project_path, "feature-test-delete")
 
         # Run command from inside feature worktree and try to delete it
-        res2 = self.run_cmd([GWT_CLI_PATH, "delete", "feature-test-delete"], cwd=feat_path)
+        res2 = self.run_cmd(
+            [GWT_CLI_PATH, "delete", "feature-test-delete"], cwd=feat_path
+        )
         self.assertNotEqual(res2.returncode, 0)
         self.assertIn("Cannot delete the active worktree", res2.stderr)
 

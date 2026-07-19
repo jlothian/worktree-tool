@@ -629,7 +629,9 @@ def cmd_delete(worktree_name=None, force=False):
                 dir_name = os.path.basename(path)
                 branch_ref = wt.get("branch")
                 branch_name = (
-                    branch_ref.replace("refs/heads/", "") if branch_ref else "(detached)"
+                    branch_ref.replace("refs/heads/", "")
+                    if branch_ref
+                    else "(detached)"
                 )
 
                 # Exclude main branch/worktree
@@ -649,7 +651,9 @@ def cmd_delete(worktree_name=None, force=False):
                     if len(staged) == 0 and len(unstaged) == 0:
                         status = "Clean"
                     elif len(staged) > 0 and len(unstaged) > 0:
-                        status = f"Dirty ({len(staged)} staged, {len(unstaged)} unstaged)"
+                        status = (
+                            f"Dirty ({len(staged)} staged, {len(unstaged)} unstaged)"
+                        )
                     elif len(staged) > 0:
                         status = f"Dirty ({len(staged)} staged)"
                     else:
@@ -730,11 +734,17 @@ def cmd_delete(worktree_name=None, force=False):
 
     # Extra validation for safety
     if branch_name == main_branch or path == main_worktree_path:
-        print(f"Error: Cannot delete the main branch worktree '{main_branch}'.", file=sys.stderr)
+        print(
+            f"Error: Cannot delete the main branch worktree '{main_branch}'.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     if user_cwd == path or user_cwd.startswith(path + os.sep):
-        print(f"Error: Cannot delete the active worktree you are currently in.", file=sys.stderr)
+        print(
+            f"Error: Cannot delete the active worktree you are currently in.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     # 1. Uncommitted changes check
@@ -746,10 +756,15 @@ def cmd_delete(worktree_name=None, force=False):
         staged, unstaged = parse_git_status(status_output)
         is_clean = len(staged) == 0 and len(unstaged) == 0
     except Exception as e:
-        print(f"Warning: Could not check status of worktree '{dir_name}': {e}", file=sys.stderr)
+        print(
+            f"Warning: Could not check status of worktree '{dir_name}': {e}",
+            file=sys.stderr,
+        )
 
     if not is_clean and not force:
-        print(f"Warning: Worktree '{dir_name}' has uncommitted changes.", file=sys.stderr)
+        print(
+            f"Warning: Worktree '{dir_name}' has uncommitted changes.", file=sys.stderr
+        )
         if staged:
             print("Staged changes:", file=sys.stderr)
             for indicator, file_p in staged:
@@ -770,7 +785,10 @@ def cmd_delete(worktree_name=None, force=False):
     if branch_name:
         is_merged = is_branch_merged(project_root, branch_ref, main_branch)
         if not is_merged and not force:
-            print(f"Warning: Branch '{branch_name}' is not merged into {main_branch}.", file=sys.stderr)
+            print(
+                f"Warning: Branch '{branch_name}' is not merged into {main_branch}.",
+                file=sys.stderr,
+            )
             print("Deleting it will result in loss of commits.", file=sys.stderr)
 
             sys.stderr.write("Delete anyway? [y/N]: ")
@@ -793,9 +811,15 @@ def cmd_delete(worktree_name=None, force=False):
         try:
             run_git(["branch", "-D", branch_name], cwd=project_root)
         except Exception as e:
-            print(f"Warning: Could not delete branch '{branch_name}': {e}", file=sys.stderr)
+            print(
+                f"Warning: Could not delete branch '{branch_name}': {e}",
+                file=sys.stderr,
+            )
 
-    print(f"Successfully deleted worktree and branch '{branch_name if branch_name else dir_name}'.", file=sys.stderr)
+    print(
+        f"Successfully deleted worktree and branch '{branch_name if branch_name else dir_name}'.",
+        file=sys.stderr,
+    )
 
 
 def cmd_init_shell(shell_type=None):
