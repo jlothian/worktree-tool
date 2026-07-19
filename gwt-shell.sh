@@ -15,6 +15,7 @@ else
 fi
 
 if [ -n "$_GWT_DIR" ] && [ -f "$_GWT_DIR/gwt_cli/gwt-shell.sh" ]; then
+    # shellcheck source=/dev/null
     source "$_GWT_DIR/gwt_cli/gwt-shell.sh"
 else
     echo "Error: Could not find gwt_cli/gwt-shell.sh to source." >&2
