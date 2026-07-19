@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v0.1.5 (2026-07-19)
+
+### Bug Fixes
+
+- Rename shell wrapper alias from gwt to wt to prevent oh-my-zsh collision
+  ([`b771fae`](https://github.com/jlothian/worktree-tool/commit/b771faed4a75cafe7e9af477cee3ef91c70e4646))
+
+
 ## v0.1.4 (2026-07-19)
 
 ### Bug Fixes
