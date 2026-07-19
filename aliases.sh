@@ -2,6 +2,11 @@
 # To use these aliases, source this file from your shell:
 #   source aliases.sh
 
+# Unalias gwt if it is already defined as an alias, to prevent parsing errors
+if alias gwt >/dev/null 2>&1; then
+    unalias gwt
+fi
+
 # Resolve directory of this script in both Bash and Zsh
 if [ -n "$BASH_VERSION" ]; then
     GWT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
