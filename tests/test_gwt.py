@@ -42,11 +42,20 @@ class TestGitWorktreeTool(unittest.TestCase):
         )
         return res
 
+    def init_project(self, project_path):
+        res = self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        if res.returncode == 0:
+            main_path = os.path.join(project_path, "main")
+            if os.path.exists(main_path):
+                self.run_cmd(["git", "config", "user.name", "Test User"], cwd=main_path)
+                self.run_cmd(["git", "config", "user.email", "test@example.com"], cwd=main_path)
+        return res
+
     def test_init_success(self):
         project_path = os.path.join(self.test_dir, "project")
 
         # Run gwt-cli init
-        res = self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        res = self.init_project(project_path)
         self.assertEqual(res.returncode, 0, f"init failed: {res.stderr}")
 
         # Verify structure
@@ -66,7 +75,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_new_worktree_success(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         # Run gwt-cli new from main directory (simulating being in project repo)
         main_path = os.path.join(project_path, "main")
@@ -92,7 +101,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_new_already_exists_fails(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         # Create once
@@ -105,7 +114,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_cleanup_clean_worktree(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         feat_path = os.path.join(project_path, "feature-my-feat")
@@ -138,7 +147,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_cleanup_dirty_worktree_rejected(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         feat_path = os.path.join(project_path, "feature-my-feat")
@@ -175,7 +184,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_cleanup_dirty_worktree_approved(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         feat_path = os.path.join(project_path, "feature-my-feat")
@@ -196,7 +205,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_list_command(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         self.run_cmd([GWT_CLI_PATH, "new", "feature/my-feat"], cwd=main_path)
@@ -261,7 +270,7 @@ class TestGitWorktreeTool(unittest.TestCase):
 
     def test_repair_command(self):
         project_path = os.path.join(self.test_dir, "project")
-        self.run_cmd([GWT_CLI_PATH, "init", self.remote_path, project_path])
+        self.init_project(project_path)
 
         main_path = os.path.join(project_path, "main")
         res = self.run_cmd([GWT_CLI_PATH, "repair"], cwd=main_path)
