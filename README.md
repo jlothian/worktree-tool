@@ -1,5 +1,7 @@
 # Git Worktree Tool
 
+[![CI/CD Status](https://github.com/jlothian/worktree-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/jlothian/worktree-tool/actions)
+
 A CLI tool for managing Git worktrees using a bare repository structure.
 
 ## Setup

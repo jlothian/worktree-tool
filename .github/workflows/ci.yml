@@ -1,0 +1,52 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  shellcheck:
+    name: Shellcheck Lint
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Run ShellCheck
+      uses: koalaman/shellcheck-action@v2
+      with:
+        path: aliases.sh
+
+  lint-python:
+    name: Python Lint and Formatting (Ruff)
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install Ruff
+      run: pip install ruff
+
+    - name: Run Ruff Lint
+      run: ruff check bin/gwt-cli tests/test_gwt.py
+
+    - name: Run Ruff Format Check
+      run: ruff format --check bin/gwt-cli tests/test_gwt.py
+
+  test:
+    name: Automated Integration Tests
+    runs-on: ubuntu-latest
+    needs: [shellcheck, lint-python]
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Run Integration Tests
+      run: python3 -m unittest discover -s tests
