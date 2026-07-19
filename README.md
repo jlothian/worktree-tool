@@ -33,7 +33,7 @@ Fetches remote updates, updates `main`, and branches off it. Slashes in the bran
 Scans worktrees merged into `main` and deletes them. If a merged worktree has dirty/untracked files, surfaces the files and prompts before deleting.
 
 ### `wt list`
-Displays a status table of all active worktrees, branches, merge status, and clean/dirty status.
+Displays a status table of all active worktrees, branches, merge status, and clean/dirty status. Run `wt list -i` or `wt list --interactive` to launch an interactive selection picker (powered by `fzf`) that previews and automatically changes directory (`cd`) to the selected worktree. (Requires `fzf` installed).
 
 ### `wt repair`
 Fixes broken worktree pointer paths if the project directory is relocated.

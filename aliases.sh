@@ -28,7 +28,17 @@ unset _GWT_DIR
 
 # Wrapper function for wt to allow directory changing (cd) on 'new' and 'init'
 function wt {
-    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+    local is_interactive=0
+    if [ "$1" = "list" ]; then
+        for arg in "$@"; do
+            if [ "$arg" = "-i" ] || [ "$arg" = "--interactive" ]; then
+                is_interactive=1
+                break
+            fi
+        done
+    fi
+
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
         local subcmd="$1"
         shift
         local target_dir

@@ -233,6 +233,12 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.assertIn("Merged", stdout)
         self.assertIn("Clean", stdout)
 
+        # Verify interactive fallback in non-TTY environment
+        res_i = self.run_cmd([GWT_CLI_PATH, "list", "-i"], cwd=main_path)
+        self.assertEqual(res_i.returncode, 0)
+        self.assertIn("WORKTREE", res_i.stdout)
+        self.assertIn("feature-my-feat", res_i.stdout)
+
         # Create a dirty file in feature worktree (unstaged)
         feat_path = os.path.join(project_path, "feature-my-feat")
         dirty_file = os.path.join(feat_path, "dirty.txt")
