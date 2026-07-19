@@ -307,31 +307,37 @@ class TestGitWorktreeTool(unittest.TestCase):
     def test_go_command_success(self):
         project_path = os.path.join(self.test_dir, "project")
         self.init_project(project_path)
-        
+
         main_path = os.path.join(project_path, "main")
         # Create a feature worktree
         self.run_cmd([GWT_CLI_PATH, "new", "feature/test"], cwd=main_path)
-        
+
         # Test going to main worktree
         res = self.run_cmd([GWT_CLI_PATH, "go", "main"], cwd=main_path)
         self.assertEqual(res.returncode, 0, f"go failed: {res.stderr}")
-        self.assertEqual(os.path.realpath(res.stdout.strip()), os.path.realpath(main_path))
-        
+        self.assertEqual(
+            os.path.realpath(res.stdout.strip()), os.path.realpath(main_path)
+        )
+
         # Test going to feature worktree by directory name
         feature_path = os.path.join(project_path, "feature-test")
         res = self.run_cmd([GWT_CLI_PATH, "go", "feature-test"], cwd=main_path)
         self.assertEqual(res.returncode, 0, f"go failed: {res.stderr}")
-        self.assertEqual(os.path.realpath(res.stdout.strip()), os.path.realpath(feature_path))
-        
+        self.assertEqual(
+            os.path.realpath(res.stdout.strip()), os.path.realpath(feature_path)
+        )
+
         # Test going to feature worktree by branch name
         res = self.run_cmd([GWT_CLI_PATH, "go", "feature/test"], cwd=main_path)
         self.assertEqual(res.returncode, 0, f"go failed: {res.stderr}")
-        self.assertEqual(os.path.realpath(res.stdout.strip()), os.path.realpath(feature_path))
+        self.assertEqual(
+            os.path.realpath(res.stdout.strip()), os.path.realpath(feature_path)
+        )
 
     def test_go_command_not_found(self):
         project_path = os.path.join(self.test_dir, "project")
         self.init_project(project_path)
-        
+
         main_path = os.path.join(project_path, "main")
         # Test going to non-existent worktree
         res = self.run_cmd([GWT_CLI_PATH, "go", "nonexistent"], cwd=main_path)

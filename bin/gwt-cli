@@ -652,27 +652,30 @@ def cmd_go(worktree_name=None):
             path = wt.get("path")
             if wt.get("bare", False) or path == common_dir:
                 continue
-            
+
             dir_name = os.path.basename(path)
             branch_ref = wt.get("branch")
             branch_name = branch_ref.replace("refs/heads/", "") if branch_ref else ""
-            
+
             # Match by directory name or branch name
             if worktree_name in [dir_name, branch_name]:
                 target_path = path
                 break
-        
+
         if not target_path:
             print(f"Error: Worktree '{worktree_name}' not found.", file=sys.stderr)
             sys.exit(1)
-        
+
         if os.path.isdir(target_path):
             print(target_path)
             sys.exit(0)
         else:
-            print(f"Error: Worktree directory '{target_path}' does not exist.", file=sys.stderr)
+            print(
+                f"Error: Worktree directory '{target_path}' does not exist.",
+                file=sys.stderr,
+            )
             sys.exit(1)
-    
+
     # Interactive mode using fzf
     if sys.stderr.isatty():
         import shutil
@@ -691,14 +694,18 @@ def cmd_go(worktree_name=None):
             path = wt.get("path")
             if wt.get("bare", False) or path == common_dir:
                 continue
-            
+
             dir_name = os.path.basename(path)
             branch_ref = wt.get("branch")
-            branch_name = branch_ref.replace("refs/heads/", "") if branch_ref else "(detached)"
-            
+            branch_name = (
+                branch_ref.replace("refs/heads/", "") if branch_ref else "(detached)"
+            )
+
             # Get status for preview
             try:
-                status_output = run_git(["status", "--porcelain"], cwd=path, log_error=False)
+                status_output = run_git(
+                    ["status", "--porcelain"], cwd=path, log_error=False
+                )
                 staged, unstaged = parse_git_status(status_output)
                 if len(staged) == 0 and len(unstaged) == 0:
                     status = "Clean"
@@ -710,7 +717,7 @@ def cmd_go(worktree_name=None):
                     status = f"Dirty ({len(unstaged)} unstaged)"
             except Exception:
                 status = "Unknown"
-            
+
             line = f"{dir_name:<30} {branch_name:<30} {status}"
             fzf_lines.append(line)
             path_map[dir_name] = path
@@ -749,7 +756,10 @@ def cmd_go(worktree_name=None):
             print(f"Error running interactive menu: {e}", file=sys.stderr)
             sys.exit(1)
     else:
-        print("Error: Interactive mode requires a terminal. Please specify a worktree name.", file=sys.stderr)
+        print(
+            "Error: Interactive mode requires a terminal. Please specify a worktree name.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 
