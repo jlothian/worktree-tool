@@ -136,7 +136,7 @@ def parse_git_status(status_output):
     return staged, unstaged
 
 
-def cmd_init(url, directory=None):
+def cmd_init(url, directory=None, main_branch_override=None):
     if not directory:
         base = url.split("/")[-1]
         if base.endswith(".git"):
@@ -169,7 +169,10 @@ def cmd_init(url, directory=None):
         print("Fetching remote branches...", file=sys.stderr)
         run_git(["fetch", "origin"], cwd=directory)
 
-        default_branch = get_main_branch(bare_dir)
+        if main_branch_override:
+            default_branch = main_branch_override
+        else:
+            default_branch = get_main_branch(bare_dir)
         print(
             f"Setting up main worktree for branch '{default_branch}'...",
             file=sys.stderr,
@@ -579,6 +582,112 @@ def cmd_repair():
         sys.exit(1)
 
 
+def cmd_init_shell(shell_type=None):
+    if not shell_type:
+        shell_env = os.environ.get("SHELL", "")
+        if "zsh" in shell_env:
+            shell_type = "zsh"
+        elif "bash" in shell_env:
+            shell_type = "bash"
+        else:
+            shell_type = "bash"  # Default fallback
+
+    if shell_type == "zsh":
+        print("""# Autocompletions and wrapper for gwt (Zsh)
+gwt() {
+    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+        local subcmd="$1"
+        shift
+        local target_dir
+        target_dir=$(gwt-cli "$subcmd" "$@")
+        local exit_code=$?
+        if [ $exit_code -eq 0 ] && [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
+            cd "$target_dir" || return $exit_code
+        fi
+        return $exit_code
+    else
+        gwt-cli "$@"
+    fi
+}
+
+_gwt_zsh() {
+    local -a subcmds
+    subcmds=(
+        'init:Clone a repository bare and setup main worktree'
+        'new:Create a new worktree branched off main'
+        'clean:Clean up merged worktrees'
+        'cleanup:Clean up merged worktrees'
+        'list:List all active worktrees and their status'
+        'repair:Repair broken worktree pointers'
+    )
+
+    if (( CURRENT == 2 )); then
+        _describe -t commands 'gwt command' subcmds
+    elif (( CURRENT == 3 )); then
+        case "${words[2]}" in
+            new)
+                local -a branches
+                branches=($(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD'))
+                _describe -t branches 'branches' branches
+                ;;
+        esac
+    fi
+}
+
+if type compdef >/dev/null 2>&1; then
+    compdef _gwt_zsh gwt
+fi
+""")
+    elif shell_type == "bash":
+        print("""# Autocompletions and wrapper for gwt (Bash)
+gwt() {
+    if [ "$1" = "new" ] || [ "$1" = "init" ]; then
+        local subcmd="$1"
+        shift
+        local target_dir
+        target_dir=$(gwt-cli "$subcmd" "$@")
+        local exit_code=$?
+        if [ $exit_code -eq 0 ] && [ -n "$target_dir" ] && [ -d "$target_dir" ]; then
+            cd "$target_dir" || return $exit_code
+        fi
+        return $exit_code
+    else
+        gwt-cli "$@"
+    fi
+}
+
+_gwt_bash() {
+    local cur prev opts
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    opts="init new clean cleanup list repair"
+
+    if [ "$COMP_CWORD" -eq 1 ]; then
+        COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+        return 0
+    elif [ "$COMP_CWORD" -eq 2 ]; then
+        case "${prev}" in
+            new)
+                local branch_list
+                branch_list=$(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD')
+                COMPREPLY=( $(compgen -W "${branch_list}" -- "${cur}") )
+                return 0
+                ;;
+        esac
+    fi
+}
+
+complete -F _gwt_bash gwt
+""")
+    else:
+        print(
+            f"Error: Unsupported shell '{shell_type}'. Supported shells: bash, zsh",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
 def main():
     parser = StderrArgumentParser(description="Git Worktree Management Tool")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -590,11 +699,25 @@ def main():
     init_parser.add_argument(
         "directory", nargs="?", default=None, help="Target directory for the project"
     )
+    init_parser.add_argument(
+        "--main", dest="main", default=None, help="Custom main branch name to checkout"
+    )
 
     new_parser = subparsers.add_parser(
         "new", help="Create a new worktree branched off main"
     )
     new_parser.add_argument("branch", help="Name of the new branch/worktree")
+
+    init_shell_parser = subparsers.add_parser(
+        "init-shell", help="Generate shell wrapper and autocomplete configuration"
+    )
+    init_shell_parser.add_argument(
+        "shell",
+        nargs="?",
+        choices=["bash", "zsh"],
+        default=None,
+        help="The shell type (bash or zsh)",
+    )
 
     subparsers.add_parser("clean", help="Clean up merged worktrees")
     subparsers.add_parser("cleanup", help="Clean up merged worktrees")
@@ -604,7 +727,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "init":
-        cmd_init(args.url, args.directory)
+        cmd_init(args.url, args.directory, args.main)
     elif args.command == "new":
         cmd_new(args.branch)
     elif args.command in ["clean", "cleanup"]:
@@ -613,6 +736,8 @@ def main():
         cmd_list()
     elif args.command == "repair":
         cmd_repair()
+    elif args.command == "init-shell":
+        cmd_init_shell(args.shell)
 
 
 if __name__ == "__main__":
