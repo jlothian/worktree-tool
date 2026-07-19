@@ -311,6 +311,15 @@ class TestGitWorktreeTool(unittest.TestCase):
         self.assertIn("_gwt_bash()", res_bash.stdout)
         self.assertIn("complete -F _gwt_bash gwt", res_bash.stdout)
 
+    def test_version_output(self):
+        res = self.run_cmd([GWT_CLI_PATH, "--version"])
+        self.assertEqual(res.returncode, 0)
+        self.assertIn("1.0.0", res.stdout + res.stderr)
+
+        res_v = self.run_cmd([GWT_CLI_PATH, "-v"])
+        self.assertEqual(res_v.returncode, 0)
+        self.assertIn("1.0.0", res_v.stdout + res_v.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

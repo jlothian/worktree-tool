@@ -20,3 +20,10 @@ dependencies = []
 
 [tool.setuptools]
 script-files = ["bin/gwt-cli"]
+
+[tool.semantic_release]
+version_variables = ["bin/gwt-cli:__version__"]
+version_toml = ["pyproject.toml:project.version"]
+branch = "main"
+upload_to_release = true
+build_command = "pip install build && python -m build"
