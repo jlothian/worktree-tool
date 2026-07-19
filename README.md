@@ -35,6 +35,9 @@ Scans worktrees merged into `main` and deletes them. If a merged worktree has di
 ### `wt list`
 Displays a status table of all active worktrees, branches, merge status, and clean/dirty status. Run `wt list -i` or `wt list --interactive` to launch an interactive selection picker (powered by `fzf`) that previews and automatically changes directory (`cd`) to the selected worktree. (Requires `fzf` installed).
 
+### `wt go [worktree]`
+Navigates to an existing worktree. If a worktree name (directory name or branch name) is provided, it outputs the path to that worktree. If no name is provided, it launches an interactive `fzf` picker to select a worktree and outputs its path. The shell wrapper automatically `cd`s to the selected worktree. (Interactive mode requires `fzf` installed).
+
 ### `wt repair`
 Fixes broken worktree pointer paths if the project directory is relocated.
 

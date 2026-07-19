@@ -38,7 +38,7 @@ function wt {
         done
     fi
 
-    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ $is_interactive -eq 1 ]; then
+    if [ "$1" = "new" ] || [ "$1" = "init" ] || [ "$1" = "go" ] || [ $is_interactive -eq 1 ]; then
         local subcmd="$1"
         shift
         local target_dir
@@ -64,6 +64,7 @@ _wt_zsh() {
         'clean:Clean up merged worktrees'
         'cleanup:Clean up merged worktrees'
         'list:List all active worktrees and their status'
+        'go:Navigate to an existing worktree (interactive if no name given)'
         'repair:Repair broken worktree pointers'
     )
 
@@ -77,6 +78,12 @@ _wt_zsh() {
                 branches=($(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD'))
                 _describe -t branches 'branches' branches
                 ;;
+            go)
+                local -a worktrees
+                # Get worktree directories and branches
+                mapfile -t worktrees < <(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}')
+                _describe -t worktrees 'worktrees' worktrees
+                ;;
         esac
     fi
 }
@@ -87,7 +94,7 @@ _wt_bash() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="init new clean cleanup list repair"
+    opts="init new clean cleanup list go repair"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         # shellcheck disable=SC2207
@@ -100,6 +107,13 @@ _wt_bash() {
                 branch_list=$(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD')
                 # shellcheck disable=SC2207
                 COMPREPLY=( $(compgen -W "${branch_list}" -- "${cur}") )
+                return 0
+                ;;
+            go)
+                local worktree_list
+                worktree_list=$(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}' | tr '\n' ' ')
+                # shellcheck disable=SC2207
+                COMPREPLY=( $(compgen -W "${worktree_list}" -- "${cur}") )
                 return 0
                 ;;
         esac

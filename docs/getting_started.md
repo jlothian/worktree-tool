@@ -57,6 +57,15 @@ Displays a status table of all active worktrees in the current project namespace
   * `MERGE STATUS`: State of the branch relative to main (`Main`, `Merged`, or `Unmerged`).
   * `FILE STATUS`: State of uncommitted changes (`Clean`, `Dirty (X staged)`, `Dirty (Y unstaged)`, or `Dirty (X staged, Y unstaged)`).
 
+### `wt go [worktree]`
+Navigates to an existing worktree.
+* **Arguments**:
+  * `[worktree]`: Optional name of the worktree to navigate to (can be directory name or branch name). If omitted, launches an interactive `fzf` picker.
+* **Behavior**:
+  - If a worktree name is provided, outputs the path to that worktree.
+  - If no name is provided, launches an interactive `fzf` picker to select a worktree.
+  - **CD Behavior**: Automatically changes your shell directory to the selected worktree.
+
 ### `wt clean` (or `cleanup`)
 Scans for worktree branches that have been merged into `main` and deletes them.
 * **Behavior**:
@@ -76,8 +85,8 @@ Prints the current version of the tool.
 
 Autocompletion is automatically registered when you load `init-shell`.
 
-* **Zsh Autocomplete**: Supports subcommand suggestions (`init`, `new`, `clean`, etc.) and dynamic suggestions for remote/local branches when executing `wt new <tab>`.
-* **Bash Autocomplete**: Supports subcommand completions and dynamic branch completion.
+* **Zsh Autocomplete**: Supports subcommand suggestions (`init`, `new`, `clean`, `go`, etc.) and dynamic suggestions for remote/local branches when executing `wt new <tab>`, or worktree directories/branches when executing `wt go <tab>`.
+* **Bash Autocomplete**: Supports subcommand completions and dynamic branch/worktree completion.
 
 ---
 
@@ -104,7 +113,17 @@ WORKTREE             BRANCH               MERGE STATUS    FILE STATUS
 feature-analytics    feature/analytics    Unmerged        Dirty (1 staged)
 main                 main                 Main            Clean
 
-# 5. Commit, push, merge, and clean up
+# 5. Navigate between worktrees
+$ wt go main
+$ pwd
+/Users/you/my-project/main
+
+# 6. Navigate using interactive picker (requires fzf)
+$ wt go
+# Launches fzf picker to select worktree
+
+# 7. Commit, push, merge, and clean up
+$ cd ../feature-analytics
 $ git commit -m "add tracking" && git push origin feature/analytics
 $ cd ../main && git merge feature/analytics
 $ wt clean
