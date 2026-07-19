@@ -1,0 +1,396 @@
+#!/usr/bin/env python3
+import argparse
+import os
+import sys
+import subprocess
+import shutil
+
+class StderrArgumentParser(argparse.ArgumentParser):
+    """Custom parser to output help/usage to stderr so it doesn't get captured by shell subshells."""
+    def print_help(self, file=None):
+        super().print_help(file or sys.stderr)
+
+    def print_usage(self, file=None):
+        super().print_usage(file or sys.stderr)
+
+def run_git(args, cwd=None, capture_output=True, log_error=True):
+    try:
+        cmd = ["git"] + args
+        res = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True, check=True)
+        return res.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        if log_error:
+            err_msg = e.stderr.strip() if e.stderr else e.stdout.strip() if e.stdout else str(e)
+            print(f"Error running {' '.join(cmd)}: {err_msg}", file=sys.stderr)
+        raise
+
+def get_git_common_dir():
+    try:
+        common_dir = subprocess.check_output(
+            ["git", "rev-parse", "--git-common-dir"],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        return os.path.abspath(common_dir)
+    except subprocess.CalledProcessError:
+        return None
+
+def get_main_branch(common_dir):
+    # Try remote HEAD first
+    try:
+        remote_head = subprocess.check_output(
+            ["git", "-C", common_dir, "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+            text=True, stderr=subprocess.DEVNULL
+        ).strip()
+        if remote_head.startswith("origin/"):
+            return remote_head[len("origin/"):]
+    except subprocess.CalledProcessError:
+        pass
+    
+    # Try looking for refs/heads/main or master
+    for b in ["main", "master"]:
+        if os.path.exists(os.path.join(common_dir, "refs", "heads", b)):
+            return b
+            
+    # Default fallback
+    return "main"
+
+def list_worktrees(project_root):
+    output = run_git(["worktree", "list", "--porcelain"], cwd=project_root)
+    worktrees = []
+    current_wt = {}
+    
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            if current_wt:
+                worktrees.append(current_wt)
+                current_wt = {}
+            continue
+            
+        parts = line.split(" ", 1)
+        key = parts[0]
+        val = parts[1] if len(parts) > 1 else ""
+        
+        if key == "worktree":
+            current_wt["path"] = os.path.abspath(val)
+            current_wt["bare"] = False
+        elif key == "bare":
+            current_wt["bare"] = True
+        elif key == "branch":
+            current_wt["branch"] = val
+            
+    if current_wt:
+        worktrees.append(current_wt)
+        
+    return worktrees
+
+def cmd_init(url, directory=None):
+    if not directory:
+        base = url.split("/")[-1]
+        if base.endswith(".git"):
+            base = base[:-4]
+        directory = base
+    
+    directory = os.path.abspath(directory)
+    if os.path.exists(directory):
+        print(f"Error: Target directory '{directory}' already exists.", file=sys.stderr)
+        sys.exit(1)
+        
+    os.makedirs(directory)
+    bare_dir = os.path.join(directory, ".bare")
+    
+    print(f"Cloning bare repository into '{bare_dir}'...", file=sys.stderr)
+    try:
+        subprocess.run(["git", "clone", "--bare", url, ".bare"], cwd=directory, check=True)
+        
+        dot_git_path = os.path.join(directory, ".git")
+        with open(dot_git_path, "w") as f:
+            f.write("gitdir: ./.bare\n")
+            
+        run_git(["config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"], cwd=directory)
+        
+        print("Fetching remote branches...", file=sys.stderr)
+        run_git(["fetch", "origin"], cwd=directory)
+        
+        default_branch = get_main_branch(bare_dir)
+        print(f"Setting up main worktree for branch '{default_branch}'...", file=sys.stderr)
+        
+        try:
+            remote_branch_exists = False
+            try:
+                run_git(["show-ref", "--verify", f"refs/remotes/origin/{default_branch}"], cwd=directory, log_error=False)
+                remote_branch_exists = True
+            except Exception:
+                pass
+                
+            if remote_branch_exists:
+                run_git(["worktree", "add", default_branch, default_branch], cwd=directory)
+                run_git(["branch", f"--set-upstream-to=origin/{default_branch}", default_branch], cwd=directory)
+            else:
+                run_git(["worktree", "add", default_branch], cwd=directory)
+        except Exception as e:
+            print(f"Warning: Could not create main worktree for '{default_branch}'. Repo might be empty: {e}", file=sys.stderr)
+            
+        print("Initialization completed successfully.", file=sys.stderr)
+    except Exception as e:
+        print(f"Error during initialization: {e}", file=sys.stderr)
+        if os.path.exists(directory):
+            try:
+                shutil.rmtree(directory)
+            except Exception:
+                pass
+        sys.exit(1)
+
+def cmd_new(branch_name):
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+        
+    if not (common_dir.endswith("/.bare") or common_dir.endswith("\\.bare") or os.path.basename(common_dir) == ".bare"):
+        print("Error: Not in a gwt-initialized project (missing '.bare' directory).", file=sys.stderr)
+        sys.exit(1)
+        
+    project_root = os.path.dirname(common_dir)
+    main_branch = get_main_branch(common_dir)
+    main_worktree_path = os.path.join(project_root, main_branch)
+    
+    if os.path.isdir(main_worktree_path):
+        print(f"Updating main branch '{main_branch}' in '{main_worktree_path}'...", file=sys.stderr)
+        try:
+            try:
+                run_git(["fetch", "origin"], cwd=main_worktree_path)
+            except Exception:
+                print("Warning: Could not fetch from origin (offline or no remote?).", file=sys.stderr)
+            
+            has_upstream = False
+            try:
+                run_git(["rev-parse", "--abbrev-ref", "@{u}"], cwd=main_worktree_path, log_error=False)
+                has_upstream = True
+            except Exception:
+                pass
+                
+            if has_upstream:
+                run_git(["pull", "--ff-only"], cwd=main_worktree_path)
+            else:
+                print("Note: Main branch has no upstream tracking configured. Skipping pull.", file=sys.stderr)
+        except Exception as e:
+            print(f"Error updating main branch: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"Warning: Main worktree directory '{main_worktree_path}' not found. Cannot update main branch.", file=sys.stderr)
+        
+    dir_name = branch_name.replace("/", "-")
+    new_worktree_path = os.path.join(project_root, dir_name)
+    
+    if os.path.exists(new_worktree_path):
+        print(f"Error: Target directory '{new_worktree_path}' already exists.", file=sys.stderr)
+        sys.exit(1)
+        
+    branch_exists = False
+    try:
+        run_git(["show-ref", "--verify", f"refs/heads/{branch_name}"], cwd=project_root, log_error=False)
+        branch_exists = True
+    except Exception:
+        pass
+        
+    if branch_exists:
+        print(f"Error: Branch '{branch_name}' already exists.", file=sys.stderr)
+        sys.exit(1)
+        
+    print(f"Creating new worktree for branch '{branch_name}' at '{new_worktree_path}'...", file=sys.stderr)
+    try:
+        run_git(["worktree", "add", "-b", branch_name, new_worktree_path, main_branch], cwd=project_root)
+        print(new_worktree_path)
+    except Exception as e:
+        print(f"Error creating worktree: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def cmd_clean():
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+        
+    if not (common_dir.endswith("/.bare") or common_dir.endswith("\\.bare") or os.path.basename(common_dir) == ".bare"):
+        print("Error: Not in a gwt-initialized project (missing '.bare' directory).", file=sys.stderr)
+        sys.exit(1)
+        
+    project_root = os.path.dirname(common_dir)
+    main_branch = get_main_branch(common_dir)
+    
+    worktrees = list_worktrees(project_root)
+    user_cwd = os.path.abspath(os.getcwd())
+    
+    for wt in worktrees:
+        path = wt.get("path")
+        is_bare = wt.get("bare", False)
+        branch_ref = wt.get("branch")
+        
+        if is_bare or path == common_dir:
+            continue
+            
+        if not branch_ref:
+            continue
+            
+        branch_name = branch_ref.replace("refs/heads/", "")
+        if branch_name == main_branch:
+            continue
+            
+        try:
+            subprocess.run(
+                ["git", "merge-base", "--is-ancestor", branch_ref, f"refs/heads/{main_branch}"],
+                cwd=project_root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            is_merged = True
+        except subprocess.CalledProcessError:
+            is_merged = False
+            
+        if not is_merged:
+            continue
+            
+        if user_cwd == path or user_cwd.startswith(path + os.sep):
+            print(f"Skipping worktree '{branch_name}' at '{path}' because it is your current shell directory.", file=sys.stderr)
+            continue
+            
+        try:
+            status_output = run_git(["status", "--porcelain"], cwd=path)
+            is_clean = (len(status_output.strip()) == 0)
+        except Exception as e:
+            print(f"Error checking status of worktree '{branch_name}' at '{path}': {e}", file=sys.stderr)
+            continue
+            
+        if is_clean:
+            print(f"Worktree '{branch_name}' at '{path}' is merged and clean. Deleting...", file=sys.stderr)
+            try:
+                run_git(["worktree", "remove", "--force", path], cwd=project_root)
+                run_git(["branch", "-d", branch_name], cwd=project_root)
+                print(f"Successfully deleted worktree and branch '{branch_name}'.", file=sys.stderr)
+            except Exception as e:
+                print(f"Error deleting worktree '{branch_name}': {e}", file=sys.stderr)
+        else:
+            print(f"\nWorktree '{branch_name}' at '{path}' is merged but NOT clean. Dirty files:", file=sys.stderr)
+            print(status_output, file=sys.stderr)
+            
+            try:
+                sys.stderr.write(f"Delete these files and the worktree '{branch_name}'? [y/N]: ")
+                sys.stderr.flush()
+                response = sys.stdin.readline().strip().lower()
+                if response in ["y", "yes"]:
+                    print("Deleting...", file=sys.stderr)
+                    run_git(["worktree", "remove", "--force", path], cwd=project_root)
+                    run_git(["branch", "-d", branch_name], cwd=project_root)
+                    print(f"Successfully deleted worktree and branch '{branch_name}'.", file=sys.stderr)
+                else:
+                    print("Skipping deletion.", file=sys.stderr)
+            except Exception as e:
+                print(f"Error handling cleanup for '{branch_name}': {e}", file=sys.stderr)
+
+def cmd_list():
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+        
+    if not (common_dir.endswith("/.bare") or common_dir.endswith("\\.bare") or os.path.basename(common_dir) == ".bare"):
+        print("Error: Not in a gwt-initialized project (missing '.bare' directory).", file=sys.stderr)
+        sys.exit(1)
+        
+    project_root = os.path.dirname(common_dir)
+    main_branch = get_main_branch(common_dir)
+    
+    try:
+        worktrees = list_worktrees(project_root)
+    except Exception as e:
+        print(f"Error listing worktrees: {e}", file=sys.stderr)
+        sys.exit(1)
+        
+    print(f"{'WORKTREE':<20} {'BRANCH':<20} {'MERGE STATUS':<15} {'FILE STATUS':<15}")
+    print("-" * 75)
+    
+    for wt in worktrees:
+        path = wt.get("path")
+        is_bare = wt.get("bare", False)
+        branch_ref = wt.get("branch")
+        
+        dir_name = os.path.basename(path)
+        
+        if is_bare or path == common_dir:
+            print(f"{'.bare (repo)':<20} {'-':<20} {'-':<15} {'-':<15}")
+            continue
+            
+        if not branch_ref:
+            print(f"{dir_name:<20} {'(detached)':<20} {'-':<15} {'-':<15}")
+            continue
+            
+        branch_name = branch_ref.replace("refs/heads/", "")
+        
+        # Merge status
+        if branch_name == main_branch:
+            merge_status = "Main"
+        else:
+            try:
+                subprocess.run(
+                    ["git", "merge-base", "--is-ancestor", branch_ref, f"refs/heads/{main_branch}"],
+                    cwd=project_root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+                )
+                merge_status = "Merged"
+            except subprocess.CalledProcessError:
+                merge_status = "Unmerged"
+                
+        # File status
+        try:
+            status_output = run_git(["status", "--porcelain"], cwd=path, log_error=False)
+            num_dirty = len(status_output.strip().splitlines()) if status_output.strip() else 0
+            file_status = "Clean" if num_dirty == 0 else f"Dirty ({num_dirty} file{'s' if num_dirty > 1 else ''})"
+        except Exception:
+            file_status = "Unknown"
+            
+        print(f"{dir_name:<20} {branch_name:<20} {merge_status:<15} {file_status:<15}")
+
+def cmd_repair():
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+        
+    project_root = os.path.dirname(common_dir)
+    print("Repairing worktree pointers...", file=sys.stderr)
+    try:
+        run_git(["worktree", "repair"], cwd=project_root)
+        print("Worktree pointers successfully repaired.", file=sys.stderr)
+    except Exception as e:
+        print(f"Error repairing worktrees: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def main():
+    parser = StderrArgumentParser(description="Git Worktree Management Tool")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    
+    init_parser = subparsers.add_parser("init", help="Clone a repository bare and setup main worktree")
+    init_parser.add_argument("url", help="URL of the repository to clone")
+    init_parser.add_argument("directory", nargs="?", default=None, help="Target directory for the project")
+    
+    new_parser = subparsers.add_parser("new", help="Create a new worktree branched off main")
+    new_parser.add_argument("branch", help="Name of the new branch/worktree")
+    
+    subparsers.add_parser("clean", help="Clean up merged worktrees")
+    subparsers.add_parser("cleanup", help="Clean up merged worktrees")
+    subparsers.add_parser("list", help="List all active worktrees and their status")
+    subparsers.add_parser("repair", help="Repair broken worktree pointers")
+    
+    args = parser.parse_args()
+    
+    if args.command == "init":
+        cmd_init(args.url, args.directory)
+    elif args.command == "new":
+        cmd_new(args.branch)
+    elif args.command in ["clean", "cleanup"]:
+        cmd_clean()
+    elif args.command == "list":
+        cmd_list()
+    elif args.command == "repair":
+        cmd_repair()
+
+if __name__ == "__main__":
+    main()
