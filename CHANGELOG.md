@@ -1,6 +1,43 @@
 # CHANGELOG
 
 
+## v0.3.0 (2026-07-19)
+
+### Features
+
+- Support detecting and cleaning up squash-merged branches
+  ([#5](https://github.com/jlothian/worktree-tool/pull/5),
+  [`91b9240`](https://github.com/jlothian/worktree-tool/commit/91b92407ae7663dba7ceb01b3716b0214a19ea97))
+
+feat: support detecting and cleaning up squash-merged branches
+
+### Refactoring
+
+- Modularize codebase and simplify subcommand routing
+  ([#4](https://github.com/jlothian/worktree-tool/pull/4),
+  [`87cdec5`](https://github.com/jlothian/worktree-tool/commit/87cdec5bcbb5fc6a7eb32f4939a77dcf77ffe55e))
+
+## Description Brief description of the changes introduced by this Pull Request. Focus on the
+  motivation, implementation details, and any architectural choices.
+
+## Related Issues Fixes # (issue number)
+
+## Type of Change - [ ] Bug fix (non-breaking change which fixes an issue) - [ x] New feature
+  (non-breaking change which adds functionality) - [ ] Breaking change (fix or feature that would
+  cause existing functionality to not work as expected) - [ ] Documentation update
+
+## How Has This Been Tested? Please describe the tests that you ran to verify your changes (e.g.
+  automated tests, manual testing walkthroughs).
+
+- [ ] Run `python3 -m unittest discover -s tests` (All tests green) - [ ] Run `ruff check` / `ruff
+  format --check` - [ ] Run `shellcheck aliases.sh` (if applicable)
+
+## Checklist: - [ ] My code follows the style guidelines of this project - [ ] I have performed a
+  self-review of my own code - [ ] I have commented my code, particularly in hard-to-understand
+  areas - [ ] I have made corresponding changes to the documentation - [ ] My changes generate no
+  new warnings
+
+
 ## v0.2.0 (2026-07-19)
 
 ### Features
