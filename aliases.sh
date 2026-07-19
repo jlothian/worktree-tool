@@ -66,6 +66,9 @@ _wt_zsh() {
         'list:List all active worktrees and their status'
         'go:Navigate to an existing worktree (interactive if no name given)'
         'repair:Repair broken worktree pointers'
+        'delete:Delete a specific worktree and its branch'
+        'remove:Delete a specific worktree and its branch'
+        'rm:Delete a specific worktree and its branch'
     )
 
     if (( CURRENT == 2 )); then
@@ -78,7 +81,7 @@ _wt_zsh() {
                 branches=($(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD'))
                 _describe -t branches 'branches' branches
                 ;;
-            go)
+            go|delete|remove|rm)
                 local -a worktrees
                 # Get worktree directories and branches
                 mapfile -t worktrees < <(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}')
@@ -94,7 +97,7 @@ _wt_bash() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="init new clean cleanup list go repair"
+    opts="init new clean cleanup list go repair delete remove rm"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         # shellcheck disable=SC2207
@@ -109,7 +112,7 @@ _wt_bash() {
                 COMPREPLY=( $(compgen -W "${branch_list}" -- "${cur}") )
                 return 0
                 ;;
-            go)
+            go|delete|remove|rm)
                 local worktree_list
                 worktree_list=$(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}' | tr '\n' ' ')
                 # shellcheck disable=SC2207

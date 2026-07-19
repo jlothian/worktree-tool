@@ -579,6 +579,225 @@ def cmd_repair():
         sys.exit(1)
 
 
+def cmd_delete(worktree_name=None, force=False):
+    common_dir = get_git_common_dir()
+    if not common_dir:
+        print("Error: Not in a git repository.", file=sys.stderr)
+        sys.exit(1)
+
+    if not (
+        common_dir.endswith("/.bare")
+        or common_dir.endswith("\\.bare")
+        or os.path.basename(common_dir) == ".bare"
+    ):
+        print(
+            "Error: Not in a gwt-initialized project (missing '.bare' directory).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    project_root = os.path.dirname(common_dir)
+    main_branch = get_main_branch(common_dir)
+    main_worktree_path = os.path.join(project_root, main_branch)
+
+    try:
+        worktrees = list_worktrees(project_root)
+    except Exception as e:
+        print(f"Error listing worktrees: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    user_cwd = os.path.abspath(os.getcwd())
+    target_wt = None
+
+    if worktree_name is None:
+        if sys.stderr.isatty():
+            if not shutil.which("fzf"):
+                print(
+                    "Error: fzf is required for interactive mode. Please install it (e.g. 'brew install fzf') or specify a worktree name.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            # Generate fzf input lines (excluding .bare, main worktree, and active worktree)
+            fzf_lines = []
+            path_map = {}
+            for wt in worktrees:
+                path = wt.get("path")
+                if wt.get("bare", False) or path == common_dir:
+                    continue
+
+                dir_name = os.path.basename(path)
+                branch_ref = wt.get("branch")
+                branch_name = (
+                    branch_ref.replace("refs/heads/", "") if branch_ref else "(detached)"
+                )
+
+                # Exclude main branch/worktree
+                if branch_name == main_branch or path == main_worktree_path:
+                    continue
+
+                # Exclude current active worktree
+                if user_cwd == path or user_cwd.startswith(path + os.sep):
+                    continue
+
+                # Get status for preview or display
+                try:
+                    status_output = run_git(
+                        ["status", "--porcelain"], cwd=path, log_error=False
+                    )
+                    staged, unstaged = parse_git_status(status_output)
+                    if len(staged) == 0 and len(unstaged) == 0:
+                        status = "Clean"
+                    elif len(staged) > 0 and len(unstaged) > 0:
+                        status = f"Dirty ({len(staged)} staged, {len(unstaged)} unstaged)"
+                    elif len(staged) > 0:
+                        status = f"Dirty ({len(staged)} staged)"
+                    else:
+                        status = f"Dirty ({len(unstaged)} unstaged)"
+                except Exception:
+                    status = "Unknown"
+
+                line = f"{dir_name:<30} {branch_name:<30} {status}"
+                fzf_lines.append(line)
+                path_map[dir_name] = wt
+
+            if not fzf_lines:
+                print("No worktrees available for deletion.", file=sys.stderr)
+                sys.exit(0)
+
+            fzf_input = "\n".join(fzf_lines) + "\n"
+
+            cmd = [
+                "fzf",
+                "--prompt=Select worktree to delete: ",
+                "--height=15",
+                "--layout=reverse",
+                "--border",
+                "--preview",
+                f"git -C {project_root}/{{1}} log --oneline -n 5 2>/dev/null || echo 'No git history'",
+            ]
+
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=sys.stderr,
+                    text=True,
+                )
+                fzf_output, _ = proc.communicate(input=fzf_input)
+                if proc.returncode == 0 and fzf_output.strip():
+                    parts = fzf_output.strip().split()
+                    if parts:
+                        dir_name = parts[0]
+                        target_wt = path_map.get(dir_name)
+                else:
+                    print("Deletion cancelled.", file=sys.stderr)
+                    sys.exit(0)
+            except Exception as e:
+                print(f"Error running interactive menu: {e}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            print(
+                "Error: Interactive mode requires a terminal. Please specify a worktree name.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+    else:
+        # Match by directory name or branch name
+        for wt in worktrees:
+            path = wt.get("path")
+            if wt.get("bare", False) or path == common_dir:
+                continue
+
+            dir_name = os.path.basename(path)
+            branch_ref = wt.get("branch")
+            branch_name = branch_ref.replace("refs/heads/", "") if branch_ref else ""
+
+            if worktree_name in [dir_name, branch_name]:
+                target_wt = wt
+                break
+
+        if not target_wt:
+            print(f"Error: Worktree '{worktree_name}' not found.", file=sys.stderr)
+            sys.exit(1)
+
+    # Now execute safety checks and perform deletion
+    path = target_wt.get("path")
+    branch_ref = target_wt.get("branch")
+    dir_name = os.path.basename(path)
+    branch_name = branch_ref.replace("refs/heads/", "") if branch_ref else ""
+
+    # Extra validation for safety
+    if branch_name == main_branch or path == main_worktree_path:
+        print(f"Error: Cannot delete the main branch worktree '{main_branch}'.", file=sys.stderr)
+        sys.exit(1)
+
+    if user_cwd == path or user_cwd.startswith(path + os.sep):
+        print(f"Error: Cannot delete the active worktree you are currently in.", file=sys.stderr)
+        sys.exit(1)
+
+    # 1. Uncommitted changes check
+    is_clean = True
+    staged = []
+    unstaged = []
+    try:
+        status_output = run_git(["status", "--porcelain"], cwd=path, log_error=False)
+        staged, unstaged = parse_git_status(status_output)
+        is_clean = len(staged) == 0 and len(unstaged) == 0
+    except Exception as e:
+        print(f"Warning: Could not check status of worktree '{dir_name}': {e}", file=sys.stderr)
+
+    if not is_clean and not force:
+        print(f"Warning: Worktree '{dir_name}' has uncommitted changes.", file=sys.stderr)
+        if staged:
+            print("Staged changes:", file=sys.stderr)
+            for indicator, file_p in staged:
+                print(f"  {indicator} {file_p}", file=sys.stderr)
+        if unstaged:
+            print("Unstaged changes:", file=sys.stderr)
+            for indicator, file_p in unstaged:
+                print(f"  {indicator} {file_p}", file=sys.stderr)
+
+        sys.stderr.write("Delete anyway? [y/N]: ")
+        sys.stderr.flush()
+        response = sys.stdin.readline().strip().lower()
+        if response not in ["y", "yes"]:
+            print("Deletion aborted.", file=sys.stderr)
+            sys.exit(1)
+
+    # 2. Merge status check
+    if branch_name:
+        is_merged = is_branch_merged(project_root, branch_ref, main_branch)
+        if not is_merged and not force:
+            print(f"Warning: Branch '{branch_name}' is not merged into {main_branch}.", file=sys.stderr)
+            print("Deleting it will result in loss of commits.", file=sys.stderr)
+
+            sys.stderr.write("Delete anyway? [y/N]: ")
+            sys.stderr.flush()
+            response = sys.stdin.readline().strip().lower()
+            if response not in ["y", "yes"]:
+                print("Deletion aborted.", file=sys.stderr)
+                sys.exit(1)
+
+    # 3. Perform Deletion
+    print(f"Deleting worktree at '{path}'...", file=sys.stderr)
+    try:
+        run_git(["worktree", "remove", "--force", path], cwd=project_root)
+    except Exception as e:
+        print(f"Error removing worktree directory: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if branch_name:
+        print(f"Deleting branch '{branch_name}'...", file=sys.stderr)
+        try:
+            run_git(["branch", "-D", branch_name], cwd=project_root)
+        except Exception as e:
+            print(f"Warning: Could not delete branch '{branch_name}': {e}", file=sys.stderr)
+
+    print(f"Successfully deleted worktree and branch '{branch_name if branch_name else dir_name}'.", file=sys.stderr)
+
+
 def cmd_init_shell(shell_type=None):
     if not shell_type:
         shell_env = os.environ.get("SHELL", "")
@@ -621,6 +840,9 @@ _wt_zsh() {
         'list:List all active worktrees and their status'
         'go:Navigate to an existing worktree (interactive if no name given)'
         'repair:Repair broken worktree pointers'
+        'delete:Delete a specific worktree and its branch'
+        'remove:Delete a specific worktree and its branch'
+        'rm:Delete a specific worktree and its branch'
     )
 
     if (( CURRENT == 2 )); then
@@ -632,7 +854,7 @@ _wt_zsh() {
                 branches=($(git branch -a --format="%(refname:short)" 2>/dev/null | grep -v 'HEAD'))
                 _describe -t branches 'branches' branches
                 ;;
-            go)
+            go|delete|remove|rm)
                 local -a worktrees
                 # Get worktree directories and branches
                 mapfile -t worktrees < <(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}')
@@ -673,7 +895,7 @@ _wt_bash() {
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="init new clean cleanup list go repair"
+    opts="init new clean cleanup list go repair delete remove rm"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -686,7 +908,7 @@ _wt_bash() {
                 COMPREPLY=( $(compgen -W "${branch_list}" -- "${cur}") )
                 return 0
                 ;;
-            go)
+            go|delete|remove|rm)
                 local worktree_list
                 worktree_list=$(git worktree list --porcelain 2>/dev/null | grep -E "^(worktree|branch)" | paste - - | sed 's/worktree //;s/branch refs\/heads\///' | awk '{print $1, $2}' | grep -v "\.bare" | awk '{print $1, $2}' | tr '\n' ' ')
                 COMPREPLY=( $(compgen -W "${worktree_list}" -- "${cur}") )
