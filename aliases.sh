@@ -4,9 +4,9 @@
 
 # shellcheck shell=bash
 
-# Unalias gwt if it is already defined as an alias, to prevent parsing errors
-if alias gwt >/dev/null 2>&1; then
-    unalias gwt
+# Unalias wt if it is already defined as an alias, to prevent parsing errors
+if alias wt >/dev/null 2>&1; then
+    unalias wt
 fi
 
 # Resolve directory of this script in both Bash and Zsh
@@ -26,8 +26,8 @@ fi
 
 unset _GWT_DIR
 
-# Wrapper function for gwt to allow directory changing (cd) on 'new' and 'init'
-gwt() {
+# Wrapper function for wt to allow directory changing (cd) on 'new' and 'init'
+function wt {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
         shift
@@ -46,7 +46,7 @@ gwt() {
 
 # Autocompletion for Zsh
 # shellcheck disable=SC2034,SC2154
-_gwt_zsh() {
+_wt_zsh() {
     local -a subcmds
     subcmds=(
         'init:Clone a repository bare and setup main worktree'
@@ -58,7 +58,7 @@ _gwt_zsh() {
     )
 
     if (( CURRENT == 2 )); then
-        _describe -t commands 'gwt command' subcmds
+        _describe -t commands 'wt command' subcmds
     elif (( CURRENT == 3 )); then
         case "${words[2]}" in
             new)
@@ -72,7 +72,7 @@ _gwt_zsh() {
 }
 
 # Autocompletion for Bash
-_gwt_bash() {
+_wt_bash() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -98,7 +98,7 @@ _gwt_bash() {
 
 # Register autocompletion based on active shell type
 if [ -n "$ZSH_VERSION" ] && type compdef >/dev/null 2>&1; then
-    compdef _gwt_zsh gwt
+    compdef _wt_zsh wt
 elif [ -n "$BASH_VERSION" ]; then
-    complete -F _gwt_bash gwt
+    complete -F _wt_bash wt
 fi

@@ -1,6 +1,6 @@
 # Architecture & Design Decisions
 
-This document outlines the core technical and architectural design decisions made during the development of the Git Worktree Management Tool (`gwt`).
+This document outlines the core technical and architectural design decisions made during the development of the Git Worktree Management Tool (`wt`).
 
 ---
 
@@ -54,5 +54,5 @@ When a worktree branch has been merged into the `main` branch, native Git allows
 Operating system security prevents compiled binaries or child scripts (like Python or standard Bash scripts run in a child process) from changing the working directory (`cd`) of the parent shell.
 
 * **Decision**: We use an environment script `aliases.sh` that is sourced by the user's shell.
-* **Wrapper Interception**: The sourced wrapper function `gwt()` intercepts commands like `new` and `init`. It executes the underlying Python CLI (`gwt-cli`), captures its successful directory outputs, and triggers `cd` in the parent shell.
+* **Wrapper Interception**: The sourced wrapper function `wt()` intercepts commands like `new` and `init`. It executes the underlying Python CLI (`gwt-cli`), captures its successful directory outputs, and triggers `cd` in the parent shell.
 * **Safe Autocompletion**: The script registers completion scripts dynamically for Zsh and Bash, using guards to check for command availability (like Zsh's `compdef`) to prevent errors in non-interactive shell scripts.

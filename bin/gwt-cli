@@ -595,12 +595,12 @@ def cmd_init_shell(shell_type=None):
             shell_type = "bash"  # Default fallback
 
     if shell_type == "zsh":
-        print("""# Autocompletions and wrapper for gwt (Zsh)
-if alias gwt >/dev/null 2>&1; then
-    unalias gwt
+        print("""# Autocompletions and wrapper for wt (Zsh)
+if alias wt >/dev/null 2>&1; then
+    unalias wt
 fi
 
-function gwt {
+function wt {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
         shift
@@ -616,7 +616,7 @@ function gwt {
     fi
 }
 
-_gwt_zsh() {
+_wt_zsh() {
     local -a subcmds
     subcmds=(
         'init:Clone a repository bare and setup main worktree'
@@ -628,7 +628,7 @@ _gwt_zsh() {
     )
 
     if (( CURRENT == 2 )); then
-        _describe -t commands 'gwt command' subcmds
+        _describe -t commands 'wt command' subcmds
     elif (( CURRENT == 3 )); then
         case "${words[2]}" in
             new)
@@ -641,16 +641,16 @@ _gwt_zsh() {
 }
 
 if type compdef >/dev/null 2>&1; then
-    compdef _gwt_zsh gwt
+    compdef _wt_zsh wt
 fi
 """)
     elif shell_type == "bash":
-        print("""# Autocompletions and wrapper for gwt (Bash)
-if alias gwt >/dev/null 2>&1; then
-    unalias gwt
+        print("""# Autocompletions and wrapper for wt (Bash)
+if alias wt >/dev/null 2>&1; then
+    unalias wt
 fi
 
-function gwt {
+function wt {
     if [ "$1" = "new" ] || [ "$1" = "init" ]; then
         local subcmd="$1"
         shift
@@ -666,7 +666,7 @@ function gwt {
     fi
 }
 
-_gwt_bash() {
+_wt_bash() {
     local cur prev opts
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -688,7 +688,7 @@ _gwt_bash() {
     fi
 }
 
-complete -F _gwt_bash gwt
+complete -F _wt_bash wt
 """)
     else:
         print(

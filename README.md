@@ -23,22 +23,22 @@ A CLI tool for managing Git worktrees using a bare repository structure.
 
 ## Commands
 
-### `gwt init <url> [directory] [--main <branch>]`
+### `wt init <url> [directory] [--main <branch>]`
 Clones the repository as a bare repository into `<directory>/.bare`, sets up the main worktree (checking out the remote HEAD branch or the custom branch name if `--main` is specified), and configures upstream tracking.
 
-### `gwt new <branch>`
+### `wt new <branch>`
 Fetches remote updates, updates `main`, and branches off it. Slashes in the branch name are converted to dashes in the directory name. Automatically `cd`s the shell into the new directory.
 
-### `gwt clean` (or `cleanup`)
+### `wt clean` (or `cleanup`)
 Scans worktrees merged into `main` and deletes them. If a merged worktree has dirty/untracked files, surfaces the files and prompts before deleting.
 
-### `gwt list`
+### `wt list`
 Displays a status table of all active worktrees, branches, merge status, and clean/dirty status.
 
-### `gwt repair`
+### `wt repair`
 Fixes broken worktree pointer paths if the project directory is relocated.
 
-### `gwt --version` (or `-v`)
+### `wt --version` (or `-v`)
 Prints the current version of the tool.
 
 ## Running Tests
