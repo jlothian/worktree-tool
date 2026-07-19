@@ -121,3 +121,51 @@ def parse_git_status(status_output):
             unstaged.append((indicator, file_path))
 
     return staged, unstaged
+
+
+def get_main_tree_hashes(project_root, main_branch):
+    try:
+        output = run_git(
+            ["log", f"refs/heads/{main_branch}", "--format=%T", "-n", "100"],
+            cwd=project_root,
+            log_error=False,
+        )
+        return set(output.splitlines())
+    except Exception:
+        return set()
+
+
+def is_branch_merged(project_root, branch_ref, main_branch, main_tree_hashes=None):
+    # 1. Standard check (commit ancestry)
+    try:
+        subprocess.run(
+            [
+                "git",
+                "merge-base",
+                "--is-ancestor",
+                branch_ref,
+                f"refs/heads/{main_branch}",
+            ],
+            cwd=project_root,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        pass
+
+    # 2. Squash merge fallback (tree hash comparison in recent history of main)
+    try:
+        branch_tree = run_git(
+            ["rev-parse", f"{branch_ref}^{{tree}}"], cwd=project_root, log_error=False
+        )
+        if main_tree_hashes is None:
+            main_tree_hashes = get_main_tree_hashes(project_root, main_branch)
+
+        if branch_tree in main_tree_hashes:
+            return True
+    except Exception:
+        pass
+
+    return False

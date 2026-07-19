@@ -9,6 +9,8 @@ from gwt_cli.git import (
     get_main_branch,
     list_worktrees,
     parse_git_status,
+    is_branch_merged,
+    get_main_tree_hashes,
 )
 
 
@@ -219,6 +221,7 @@ def cmd_clean():
 
     project_root = os.path.dirname(common_dir)
     main_branch = get_main_branch(common_dir)
+    main_tree_hashes = get_main_tree_hashes(project_root, main_branch)
 
     worktrees = list_worktrees(project_root)
     user_cwd = os.path.abspath(os.getcwd())
@@ -238,23 +241,9 @@ def cmd_clean():
         if branch_name == main_branch:
             continue
 
-        try:
-            subprocess.run(
-                [
-                    "git",
-                    "merge-base",
-                    "--is-ancestor",
-                    branch_ref,
-                    f"refs/heads/{main_branch}",
-                ],
-                cwd=project_root,
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            is_merged = True
-        except subprocess.CalledProcessError:
-            is_merged = False
+        is_merged = is_branch_merged(
+            project_root, branch_ref, main_branch, main_tree_hashes
+        )
 
         if not is_merged:
             continue
@@ -286,7 +275,10 @@ def cmd_clean():
             )
             try:
                 run_git(["worktree", "remove", "--force", path], cwd=project_root)
-                run_git(["branch", "-d", branch_name], cwd=project_root)
+                try:
+                    run_git(["branch", "-d", branch_name], cwd=project_root)
+                except Exception:
+                    run_git(["branch", "-D", branch_name], cwd=project_root)
                 print(
                     f"Successfully deleted worktree and branch '{branch_name}'.",
                     file=sys.stderr,
@@ -318,7 +310,10 @@ def cmd_clean():
                 if response in ["y", "yes"]:
                     print("Deleting...", file=sys.stderr)
                     run_git(["worktree", "remove", "--force", path], cwd=project_root)
-                    run_git(["branch", "-d", branch_name], cwd=project_root)
+                    try:
+                        run_git(["branch", "-d", branch_name], cwd=project_root)
+                    except Exception:
+                        run_git(["branch", "-D", branch_name], cwd=project_root)
                     print(
                         f"Successfully deleted worktree and branch '{branch_name}'.",
                         file=sys.stderr,
@@ -350,6 +345,7 @@ def cmd_list(interactive=False):
 
     project_root = os.path.dirname(common_dir)
     main_branch = get_main_branch(common_dir)
+    main_tree_hashes = get_main_tree_hashes(project_root, main_branch)
 
     try:
         worktrees = list_worktrees(project_root)
@@ -383,22 +379,11 @@ def cmd_list(interactive=False):
         if branch_name == main_branch:
             merge_status = "Main"
         else:
-            try:
-                subprocess.run(
-                    [
-                        "git",
-                        "merge-base",
-                        "--is-ancestor",
-                        branch_ref,
-                        f"refs/heads/{main_branch}",
-                    ],
-                    cwd=project_root,
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
+            if is_branch_merged(
+                project_root, branch_ref, main_branch, main_tree_hashes
+            ):
                 merge_status = "Merged"
-            except subprocess.CalledProcessError:
+            else:
                 merge_status = "Unmerged"
 
         # File status

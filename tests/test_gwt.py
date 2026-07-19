@@ -147,6 +147,40 @@ class TestGitWorktreeTool(unittest.TestCase):
         branches = self.run_cmd(["git", "branch"], cwd=main_path).stdout
         self.assertNotIn("feature/my-feat", branches)
 
+    def test_cleanup_squash_merged_worktree(self):
+        project_path = os.path.join(self.test_dir, "project")
+        self.init_project(project_path)
+
+        main_path = os.path.join(project_path, "main")
+        feat_path = os.path.join(project_path, "feature-my-feat")
+
+        # Create worktree
+        self.run_cmd([GWT_CLI_PATH, "new", "feature/my-feat"], cwd=main_path)
+
+        # Make a commit in feature worktree
+        with open(os.path.join(feat_path, "feat.txt"), "w") as f:
+            f.write("feat\n")
+        self.run_cmd(["git", "add", "feat.txt"], cwd=feat_path)
+        self.run_cmd(["git", "commit", "-m", "add feat"], cwd=feat_path)
+
+        # Squash merge it into main manually
+        self.run_cmd(["git", "merge", "--squash", "feature/my-feat"], cwd=main_path)
+        self.run_cmd(["git", "commit", "-m", "squash merge of my-feat"], cwd=main_path)
+
+        # Check that it exists before clean
+        self.assertTrue(os.path.isdir(feat_path))
+
+        # Run clean from main
+        res = self.run_cmd([GWT_CLI_PATH, "clean"], cwd=main_path)
+        self.assertEqual(res.returncode, 0, f"clean failed: {res.stderr}")
+
+        # Verify worktree is removed
+        self.assertFalse(os.path.exists(feat_path))
+
+        # Verify branch is deleted
+        branches = self.run_cmd(["git", "branch"], cwd=main_path).stdout
+        self.assertNotIn("feature/my-feat", branches)
+
     def test_cleanup_dirty_worktree_rejected(self):
         project_path = os.path.join(self.test_dir, "project")
         self.init_project(project_path)
