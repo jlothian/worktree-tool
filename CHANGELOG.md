@@ -1,6 +1,19 @@
 # CHANGELOG
 
 
+## v0.2.0 (2026-07-19)
+
+### Features
+
+- Add wt go command for worktree navigation ([#3](https://github.com/jlothian/worktree-tool/pull/3),
+  [`86c1bf9`](https://github.com/jlothian/worktree-tool/commit/86c1bf9269a9132854132068e01c1d34d1377557))
+
+feat: add wt go command for worktree navigation
+
+Add go command to navigate to existing worktrees by name or interactive fzf picker. Shell wrapper
+  automatically cd's to selected worktree.
+
+
 ## v0.1.5 (2026-07-19)
 
 ### Bug Fixes
